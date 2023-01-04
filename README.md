@@ -78,37 +78,72 @@ user, password, remote, and share but with a target filename of
 lizards_copy.jpg.  The following lines are information messages
 which can be disabled.  At the completion is heap statistics.
 
-## smbcp Implementation
+# Building the smbcp application
 
-The implementatoin of the smbcp application and Yocto recipe is relevant for
-integrating customer applications with the Yocto based openfiles framework.
+If you are building a yocto based distribution using the of_manifests
+repo configuration, the smbcp application will be built and included in
+your distribution.
 
-### smbcp Recipe
+If you are deploying openfiles in a Linux environment, you will need to
+clone, build, and install smbcp on your Linux machine.
 
-The smbcp recipe is located within the meta-connectdway layer at:
+## Cloning the smbcp repository
+
+To clone the repo, simply issue:
 
 ```
-meta-connectedway/recipes-extended/smbcp/smbcp_1.0.0.bb
+$ git clone https://github.com/connectedway/smbcp.git
+$ cd smbcp
 ```
 
-The `DEPENDS` variable declares that smbcp is dependent on the openfiles
-package, krb5, and mbedtls.  This insures that those three packages will be
-built and installed into the target file system along with the smbcp package.
+## Building the smbcp Application
 
-The `SRC_URI` declares three files as part of the package: COPYING, smbcp.c,
-and a Makefile.  These could be packaged as a tar file, or within a git repo
-but we opted to included these files in the smbcp subdirectory of the recipe.
+Note that if you wish to build the smbcp application, you will have had to
+successfully build and installed the Open Files Framework.  You can find
+more [Here](https://github.com/connectedway/openfiles/blob/main/README.md)
+and [Here](https://github.com/connectedway/openfiles/blob/main/LINUX.md).
 
-Most of the recipe is simply default bitbake magic.  Bitbake will automatically
-treat a package that contains a Makefile as a makefile project and will
-invoke that makefile to compile and link the application.  The do_install
-task will explicity invoke make to install the executables in the destination
-staging area defined by 'D' and into a install directory of /usr/bin/openfiles.
+Then simply issue:
 
-Lastly, we have declared the packaging of the recipe to contain the smbcp
-binary within the /usr/bin/openfiles directory.
+```
+$ make
+```
 
-### smbcp Makefile
+## Installing the smbcp Application
+
+You can install the application into your system directories by issuing:
+
+```
+$ sudo make install
+```
+
+## Uninstalling the smbcp Application
+
+You can uninstall the application from your system directories by issuing:
+
+```
+$ sudo make uninstall
+```
+
+## Cleaning your build directory
+
+You can clean up build artifacts from your build directory by issuing:
+
+```
+$ make clean
+```
+
+## Running the smbcp application
+
+You can run the application by following the description in this README
+files [Introduction](#introduction)
+
+# smbcp Implementation
+
+The implementatoin of the smbcp application is relevant for
+integrating customer applications with the Linux based openfiles framework.
+
+## smbcp Makefile
 
 The makefile is a basic make.  The smbcp application consists of one object
 file, smbcp.o.  The object file is compiled using bitbakes default CFLAGS
@@ -127,7 +162,7 @@ constructors.  As a conveniece to openfile application developers, we will
 initialize the stack implicitly upon library load rather than requiring the
 developer to initialize the stack within the application itself.
 
-### smbcp Source Code
+## smbcp Source Code
 
 This readme will not go through line by line within the smbcp.c source file.
 Rather, we'll call out relevant sections.
