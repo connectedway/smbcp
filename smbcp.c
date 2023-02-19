@@ -1,10 +1,12 @@
 /* Copyright (c) 2021 Connected Way, LLC. All rights reserved.
  * Use of this source code is unrestricted
  */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <wchar.h>
+#include <unistd.h>
 
 #include <ofc/config.h>
 #include <ofc/handle.h>
@@ -12,6 +14,7 @@
 #include <ofc/file.h>
 #include <ofc/waitset.h>
 #include <ofc/queue.h>
+#include <of_smb/framework.h>
 
 /*
  * Buffering definitions.  We test using overlapped asynchronous I/O.  
@@ -820,15 +823,34 @@ int main (int argc, char **argp)
 
   if (argc < 3)
     {
-      printf ("Usage: smbcp [-a] <source> <destination>\n");
+      printf ("Usage: smbcp [-a | -dc <bootstrap-dc>] <source> <destination>\n");
       exit (1);
     }
 
   argidx = 1;
-  if (strcmp(argp[argidx], "-a") == 0)
+  while (1)
     {
-      async = 1;
-      argidx++;
+      if (strcmp(argp[argidx], "-a") == 0)
+	{
+	  async = 1;
+	  argidx++;
+	}
+      else if (strcmp(argp[argidx], "-dc") == 0)
+	{
+	  OFC_LPTSTR bootstrap_dc;
+	  
+	  argidx++;
+	  memset(&ps, 0, sizeof(ps));
+	  len = strlen(argp[argidx]) + 1;
+	  bootstrap_dc = malloc(sizeof(wchar_t) * len);
+	  cursor = argp[argidx];
+	  argidx++;
+	  mbsrtowcs(bootstrap_dc, &cursor, len, &ps);
+	  of_smb_set_bootstrap_dc(bootstrap_dc);
+	  free(bootstrap_dc);
+	}
+      else
+	break;
     }
 
   memset(&ps, 0, sizeof(ps));

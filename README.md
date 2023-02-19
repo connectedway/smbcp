@@ -18,13 +18,21 @@ the framework on the target system.
 The syntax of the smbcp utility is:
 
 ```
-$ smbcp [-a] <source> <destination>
+$ smbcp [-a | -dc <bootstrap-dc>] <source> <destination>
 ```
 
 Where -a signifies that the copy operation should be done asynchronously
 using multiple overlapped buffers.  The absense of -a specifies that the
 copy is done synchronously.  Only one I/O is outstanding at a time in
 syncronous mode.
+
+If you are using a domain based DFS namespace in either the source or
+destination filenames and the OpenFiles stack has not been configured
+persistantly through the `/etc/openfiles.xml` file or the `bootstrap_dc`
+entry in the configuration file has not been initialized, you should
+specify the bootstrap dc in the `smbcp` command line.  This is primarily
+here to support dynamic configuration testing of the bootstrap_dc.  We
+highly recommend configuring the Open Files stack persistently.
 
 smbcp can copy a file from local or remote locations to a file that resides
 locally or remotely.  A file specification is of the form:
@@ -38,7 +46,7 @@ absence of a leading `//` signifies a local location.
 
 With a remote URL, a username, password, server, and share are all required.
 while the :domain is optional and used only for active directory managed
-locatoins.  Path can be any depth as long as the total file path is less than
+locations.  Path can be any depth as long as the total file path is less than
 256 bytes.  For example:
 
 ```
@@ -49,6 +57,14 @@ This will access the server named 'remote' and log in using the username
 'me' and the password 'secret'.  It will implicitly mount the remote share
 named 'share' and will access the file 'subdirectory/picture.jpg' relative
 to the share.  It will copy the file locally to the filename picture.jpg.
+
+If you are using a domain based DFS namespace, and need to specify the
+bootstrap dc, the command may be of the following form:
+
+```
+$ smbcp -dc dc1.spiritcloud.app \
+  //me:secret@remote/share/subdirectory/picture.jpg ./picture.jpg
+```
 
 The source path and destination path can be either local or remote so
 copies from a remote to a local, from a local to a remote, from a local to
@@ -116,6 +132,15 @@ You can install the application into your system directories by issuing:
 ```
 $ sudo make install
 ```
+
+The application will be install, by default, in /usr/local/bin/openfiles.  You
+may wish to add this to your path variable:
+
+```
+$ export PATH=$PATH:/usr/local/bin/openfiles
+```
+
+And update your shell startup scripts accordingly
 
 ## Uninstalling the smbcp Application
 
