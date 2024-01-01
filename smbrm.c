@@ -38,7 +38,6 @@ static OFC_DWORD rm(OFC_CTCHAR *wfilename)
 
   if (write_file == OFC_INVALID_HANDLE_VALUE)
     {
-      printf("In Here\n");
       dwLastError = OfcGetLastError();
     }
   else

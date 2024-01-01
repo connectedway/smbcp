@@ -43,6 +43,7 @@ TEST_INPUT_FILENAME="test_input_file.txt"
 TEST_INPUT_FILE="/tmp/$TEST_INPUT_FILENAME"
 TEST_OUTPUT_FILENAME="test_output_file.txt"
 TEST_OUTPUT_FILE="/tmp/$TEST_OUTPUT_FILENAME"
+SLEEP=2
 #
 # Show authentication
 #
@@ -63,6 +64,8 @@ do
 	exit 1
     fi
        
+    sleep $SLEEP
+
     smbcp $dir/$TEST_INPUT_FILENAME $TEST_OUTPUT_FILE
     if [ $? -ne 0 ];
     then
@@ -76,6 +79,9 @@ do
 	echo "Could not delete $TEST_INPUT_FILE from $dir"
 	exit 1
     fi
+
+    sleep $SLEEP
+
     smbls $dir
 done    
 rm $TEST_INPUT_FILE $TEST_OUTPUT_FILE
