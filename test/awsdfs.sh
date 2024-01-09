@@ -4,6 +4,50 @@
 # This shell script performs simple tests against all known DFS locations in the
 # AWS openfiles qualification network
 #
+# Domain: DOUBLEDOUBLEU.COM
+#  DCs: spiritdc.doubledoubleu.com
+#       spiritdcb.doubledoubleu.com
+#
+#  Shares:
+#       \\spiritdc.doubledoubleu.com\air : C:\Shares\air
+#       \\spiritdc.doubledoubleu.com\earth : C:\Shares\earth
+#       \\spiritdc.doubledoubleu.com\Shared : C:\Shares\Shared
+#       \\spiritdc.doubledoubleu.com\Spirit : C:\DFSRoots\Spirit
+#
+#       \\spiritdc.doubledoubleu.com\Root : c:\DFSRoots\Root
+#
+#       \\spiritdc.doubledoubleu.com\wine : C:\Shares\wine
+#
+#       \\spiritdcb.doubledoubleu.com\air : C:\Shares\air
+#       \\spiritdcb.doubledoubleu.com\earth : C:\Shares\earth
+#       \\spiritdcb.doubledoubleu.com\Shared : C:\Shares\Shared
+#       \\spiritdcb.doubledoubleu.com\Spirit : C:\DFSRoots\Spirit
+#
+#       \\spiritdcb.doubledoubleu.com\Root : c:\DFSRoots\Root
+#
+#       \\spiritdcb.doubledoubleu.com\water : c:\Shares\water
+#
+#  DFS Roots:
+#       \\spiritdc.doubledoubleu.com\Spirit
+#       \\spiritdcb.doubledoubleu.com\Spirit
+#
+#       \\spiritdc.doubledoubleu.com\Root
+#       \\spiritdcb.doubledoubleu.com\Root
+
+#  DFS Links:
+#       \\spiritdc.doubledoubleu.com\Spirit\air -> \\spiritdc.doubledoubleu.com\air
+#       \\spiritdc.doubledoubleu.com\Spirit\earth -> \\spiritdc.doubledoubleu.com\earth
+#       \\spiritdcb.doubledoubleu.com\Spirit\air -> \\spiritdcb.doubledoubleu.com\air
+#       \\spiritdcb.doubledoubleu.com\Spirit\earth -> \\spiritdcb.doubledoubleu.com\earth
+#
+#       \\spiritdc.doubledoubleu.com\Root\wine -> \\spiritdcb.doubledoubleu.com\water
+#       \\spiritdcb.doubledoubleu.com\Root\water -> \\spiritdc.doubledoubleu.com\wine
+#
+#
+#  Replicated Storage:
+#       \\spiritdc.doubledoubleu.com\Spirit
+#       \\spiritdcb.doubledoubleu.com\Spirit
+
 declare -a dirs=(
     # DFS Domain
     "//DOUBLEDOUBLEU/Spirit/air"
@@ -37,13 +81,25 @@ declare -a dirs=(
     "//spiritdc/air"
     # SMB DC Alternate (LC)
     "//spiritdc.doubledoubleu.com/air"
+    # Non Replicated Domain Cross Server
+    "//DOUBLEDOUBLEU/Root/water"
+    "//DOUBLEDOUBLEU/Root/wine"
+    # Non Replicated DC Cross Server
+    "//spiritdc/Root/water"
+    "//spiritdcb/Root/water"
+    "//spiritdc/Root/wine"
+    "//spiritdcb/Root/wine"
+    # Non Replicated SMB Cros Server
+    # Note, //spiritdc/water and //spiritdcb/wine would fail
+    "//spiritdc/wine"
+    "//spiritdcb/water"
 )
 
 TEST_INPUT_FILENAME="test_input_file.txt"
 TEST_INPUT_FILE="/tmp/$TEST_INPUT_FILENAME"
 TEST_OUTPUT_FILENAME="test_output_file.txt"
 TEST_OUTPUT_FILE="/tmp/$TEST_OUTPUT_FILENAME"
-SLEEP=2
+SLEEP=0
 #
 # Show authentication
 #

@@ -206,7 +206,7 @@ int main (int argc, char **argp)
   cursor = argp[1];
   mbsrtowcs(wfilename, &cursor, len, &ps);
 
-  printf("Listing %s: ", argp[1]);
+  printf("Listing %s\n: ", argp[1]);
   fflush(stdout);
 
   ret = ls(wfilename);
