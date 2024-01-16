@@ -837,17 +837,11 @@ int main (int argc, char **argp)
 	}
       else if (strcmp(argp[argidx], "-dc") == 0)
 	{
-	  OFC_LPTSTR bootstrap_dc;
-	  
 	  argidx++;
 	  memset(&ps, 0, sizeof(ps));
 	  len = strlen(argp[argidx]) + 1;
-	  bootstrap_dc = malloc(sizeof(wchar_t) * len);
-	  cursor = argp[argidx];
 	  argidx++;
-	  mbsrtowcs(bootstrap_dc, &cursor, len, &ps);
-	  of_smb_set_bootstrap_dc(bootstrap_dc);
-	  free(bootstrap_dc);
+	  of_smb_set_bootstrap_dcs(1, &argp[argidx]);
 	}
       else
 	break;
