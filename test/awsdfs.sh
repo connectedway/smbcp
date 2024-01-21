@@ -104,6 +104,11 @@ SLEEP=0
 # Show authentication
 #
 klist
+if [ $? -ne 0 ];
+then
+    echo "Not currently logged into a domain"
+    exit 1
+fi
 #
 # Create test file
 #
