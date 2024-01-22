@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 
 #
 # This python script performs simple tests against all known DFS locations in
@@ -54,6 +53,25 @@ import sys
 import argparse
 import os
 
+import pytest
+
+#
+# Each test has a configuration.  From a test execution perspective
+# we will run tests with both spiritdc and spiritdcb opertional
+# just spiritdc, or just spiritdcb.  This is communicated to this test
+# module using the --online keyword:  i.e --online=both|spiritdc|spiritdcb
+#
+# Tests on the otherhand have requirements.  They may require either
+# server be running, both servers be running, or a specific server be running.
+# This is specified with the config column of the tests table.  Valid
+# values are "any", "both", "spiritdc", or "spiritdcb".
+#
+# When running, the following scenarios are possible:
+#   online is both, any, both, spiritdc and spiritdcb all work.
+#   online is spiritdc, then any, and spiritdc work
+#   online is spiritdcb, then any and spiritdcb work
+#
+
 #
 # Tuples of the form:
 # ("comment", "remote directory", "scenario")
@@ -85,15 +103,15 @@ tests = [
     ("Non Replicated SMB DCB", "//spiritdcb/water", "spiritdcb"),
 ]
 
-TEST_INPUT_FILENAME="test_input_file.txt"
-TEST_INPUT_FILE=f"/tmp/{TEST_INPUT_FILENAME}"
-TEST_OUTPUT_FILENAME="test_output_file.txt"
-TEST_OUTPUT_FILE=f"/tmp/{TEST_OUTPUT_FILENAME}"
+TEST_INPUT_FILENAME = "test_input_file.txt"
+TEST_INPUT_FILE = f"/tmp/{TEST_INPUT_FILENAME}"
+TEST_OUTPUT_FILENAME = "test_output_file.txt"
+TEST_OUTPUT_FILE = f"/tmp/{TEST_OUTPUT_FILENAME}"
+DFS_CACHE_FILE = "/tmp/dfs_cache.xml"
+
 
 def run_command(command, fd):
-
-    result = subprocess.run(command, shell=True,
-                            capture_output=True, text=True)
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
     fd.write("command: \n")
     fd.write(f"{command}\n\n")
     fd.write("stdout: \n")
@@ -106,55 +124,67 @@ def run_command(command, fd):
     return result.returncode
 
 
-def run_test(descr, dir, logfile):
+def test_authenticated():
+    #
+    # Show authentication
+    #
+    result = subprocess.run("klist", shell=True, capture_output=True, text=True)
 
+    assert result.returncode == 0, "Not currently logged into a domain"
+
+
+@pytest.mark.parametrize("descr, dir, config", tests)
+def test_transaction(descr, dir, config, online, logfile):
     return_code = 1
-    
+    #
+    # When running, the following scenarios are possible:
+    #   online is both, any, both, spiritdc and spiritdcb all work.
+    #   online is spiritdc, then any, and spiritdc work
+    #   online is spiritdcb, then any and spiritdcb work
+    #
+    if online == "both":
+        pass
+    elif online == "spiritdc" and (config == "any" or config == "spiritdc"):
+        pass
+    elif online == "spiritdcb" and (config == "any" or config == "spiritdcb"):
+        pass
+    else:
+        pytest.skip("Test not part of config")
+
     with open(logfile, "a") as fd:
         fd.write(f"Running {descr}\n\n")
 
         command = f"smbcp {TEST_INPUT_FILE} {dir}/{TEST_INPUT_FILENAME}"
         return_code = run_command(command, fd)
-        if return_code != 0:
-            print(f"Could not copy {TEST_INPUT_FILE} to {dir}")
-            return return_code
+        assert return_code == 0, f"Could not copy {TEST_INPUT_FILE} to {dir}"
 
         command = f"smbcp {dir}/{TEST_INPUT_FILENAME} {TEST_OUTPUT_FILE}"
         return_code = run_command(command, fd)
-        if return_code != 0:
-            print(f"Could not copy {TEST_OUTPUT_FILE} from {dir}")
-            return return_code
+        assert return_code == 0, f"Could not copy {TEST_INPUT_FILENAME} from {dir}"
 
         command = f"smbrm {dir}/{TEST_INPUT_FILENAME}"
         return_code = run_command(command, fd)
-        if return_code != 0:
-            print(f"Could not delete {TEST_INPUT_FILE} from {dir}")
-            return return_code
+        assert return_code == 0, f"Could not delete {TEST_INPUT_FILENAME} from {dir}"
 
         command = f"smbls {dir}"
         run_command(command, fd)
 
-    return return_code
 
-
-def run_regressions(online, logfile):
-
-    return_code = 0
-
+@pytest.fixture(scope="module", autouse=True)
+def setup_module():
     #
     # Create test file
     #
     with open(TEST_INPUT_FILE, "w") as output_file:
         command = f"dd if=/dev/urandom bs=786438 count=1 | base64"
-        result = subprocess.run(command, shell=True, stdout=output_file,
-                                text=True)
+        result = subprocess.run(command, shell=True, stdout=output_file, text=True)
 
-    for descr, dir, config in tests:
-        if online == "any" or config == online:
-            print(f"Running {descr}")
-            return_code = run_test(descr, dir, logfile)
-        else:
-            print(f"Skipping {descr}, not part of {online}")
+    try:
+        os.remove(DFS_CACHE_FILE)
+    except FileNotFoundError:
+        pass
+
+    yield
 
     try:
         os.remove(TEST_INPUT_FILE)
@@ -165,50 +195,3 @@ def run_regressions(online, logfile):
         os.remove(TEST_OUTPUT_FILE)
     except FileNotFoundError:
         pass
-
-    return return_code
-
-
-if __name__ == "__main__":
-    #
-    # Parse arguments
-    #
-    #   --online any | both | spiritdc | spiritdcb
-    #   --log <logfile>
-    #
-    # where:
-    #    any implies that either spiritdc and spiritdcb are only
-    #    both implies that both spiritdc and spiritdcb are online
-    #    spiritdc implies that only spiritdc is online
-    #    spiritdcb implies that only spiritdcb is online
-    #
-    parser = argparse.ArgumentParser(
-        description="Openfiles DFS Regression Test"
-    )
-
-    allowed_online = ["any", "both", "spiritdc", "spiritdcb"]
-    parser.add_argument("online", choices=allowed_online,
-                        help="Choose a configuration")
-    parser.add_argument("-l", "--log", default="of_regression.log",
-                        help="Log filename")
-
-    args = parser.parse_args()
-
-    with open(args.log, "w") as fd:
-        fd.write(f"Openfiles Regression Results with {args.online}\n")
-
-    #
-    # Show authentication
-    #
-    result = subprocess.run("klist", shell=True,
-                            capture_output=True, text=True)
-
-    print(f"{result.stdout}")
-    if result.returncode != 0:
-        print(f"{result.stderr}")
-        print("Not currently logged into a domain")
-        return_code = 1
-    else:
-        return_code = run_regressions(args.online, args.log)
-
-    sys.exit(return_code)
