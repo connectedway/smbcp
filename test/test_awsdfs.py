@@ -81,18 +81,26 @@ tests = [
     ("DFS Domain Alternate", "//DOUBLEDOUBLEU.COM/Spirit/air", "any"),
     ("DFS Domain (LC)", "//doubledoubleu/Spirit/air", "any"),
     ("DFS Domain Alternate (LC)", "//doubledoubleu.com/Spirit/air", "any"),
-    ("DFS DC", "//SPIRITDC/Spirit/air", "any"),
-    ("DFS DC Alternate", "//SPIRITDC.DOUBLEDOUBLEU.COM/Spirit/air", "any"),
-    ("DFS DC (LC)", "//spiritdc/Spirit/air", "any"),
-    ("DFS DC Alternate (LC)", "//spiritdc.doubledoubleu.com/Spirit/air", "any"),
+    ("DFS DC", "//SPIRITDC/Spirit/air", "spiritdc"),
+    ("DFS DC Alternate", "//SPIRITDC.DOUBLEDOUBLEU.COM/Spirit/air", "spiritdc"),
+    ("DFS DCB", "//SPIRITDCB/Spirit/air", "spiritdcb"),
+    ("DFS DCB Alternate", "//SPIRITDCB.DOUBLEDOUBLEU.COM/Spirit/air", "spiritdcb"),
+    ("DFS DC (LC)", "//spiritdc/Spirit/air", "spiritdc"),
+    ("DFS DC Alternate (LC)", "//spiritdc.doubledoubleu.com/Spirit/air", "spiritdc"),
+    ("DFS DCB (LC)", "//spiritdcb/Spirit/air", "spiritdcb"),
+    ("DFS DCB Alternate (LC)", "//spiritdcb.doubledoubleu.com/Spirit/air", "spiritdcb"),
     ("SMB Domain", "//DOUBLEDOUBLEU/air", "any"),
     ("SMB Domain Alternate", "//DOUBLEDOUBLEU.COM/air", "any"),
     ("SMB Domain (LC)", "//doubledoubleu/air", "any"),
     ("SMB Domin Alternate (LC)", "//doubledoubleu.com/air", "any"),
-    ("SMB DC", "//SPIRITDC/air", "any"),
-    ("SMB DC Alternate", "//SPIRITDC.DOUBLEDOUBLEU.COM/air", "any"),
-    ("SMB DC (LC)", "//spiritdc/air", "any"),
-    ("SMB DC Alternate (LC)", "//spiritdc.doubledoubleu.com/air", "any"),
+    ("SMB DC", "//SPIRITDC/air", "spiritdc"),
+    ("SMB DC Alternate", "//SPIRITDC.DOUBLEDOUBLEU.COM/air", "spiritdc"),
+    ("SMB DCB", "//SPIRITDCB/air", "spiritdcb"),
+    ("SMB DCB Alternate", "//SPIRITDCB.DOUBLEDOUBLEU.COM/air", "spiritdcb"),
+    ("SMB DC (LC)", "//spiritdc/air", "spiritdc"),
+    ("SMB DC Alternate (LC)", "//spiritdc.doubledoubleu.com/air", "spiritdc"),
+    ("SMB DCB (LC)", "//spiritdcb/air", "spiritdcb"),
+    ("SMB DCB Alternate (LC)", "//spiritdcb.doubledoubleu.com/air", "spiritdcb"),
     ("Non Replicated Domain Cross DCB", "//DOUBLEDOUBLEU/Root/water", "spiritdcb"),
     ("Non Replicated Domain Cross DCA", "//DOUBLEDOUBLEU/Root/wine", "spiritdc"),
     ("Non Replicated DC Cross DCB", "//spiritdc/Root/water", "both"),
@@ -124,11 +132,18 @@ def run_command(command, fd):
     return result.returncode
 
 
-def test_authenticated():
+def test_authenticated(logfile):
     #
     # Show authentication
     #
     result = subprocess.run("klist", shell=True, capture_output=True, text=True)
+    with open(logfile, "w") as fd:
+        fd.write("Authentication:\n")
+        fd.write("stdout:\n")
+        fd.write(result.stdout)
+        fd.write("\n")
+        fd.write("stderr:\n")
+        fd.write(result.stderr)
 
     assert result.returncode == 0, "Not currently logged into a domain"
 
