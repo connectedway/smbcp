@@ -1,4 +1,3 @@
-
 #
 # This python script performs simple tests against all known DFS locations in
 # the AWS openfiles qualification network
@@ -132,6 +131,29 @@ def run_command(command, fd):
     return result.returncode
 
 
+SPIRITDC = "172.31.17.154"
+SPIRITDCB = "172.31.30.112"
+BOTH = "0.0.0.0"
+
+
+@pytest.fixture(params=[BOTH, SPIRITDC, SPIRITDCB])
+def setup_teardown(request):
+
+    ip = request.param
+    if ip != BOTH:
+        #
+        # Start up the firewall
+        #
+        pass
+    yield
+
+    if ip != BOTH:
+        #
+        # teardown firewall
+        #
+        pass
+
+
 def test_authenticated(logfile):
     #
     # Show authentication
@@ -148,6 +170,7 @@ def test_authenticated(logfile):
     assert result.returncode == 0, "Not currently logged into a domain"
 
 
+@pytest.mark.usefixtures("setup_teardown")
 @pytest.mark.parametrize("descr, dir, config", tests)
 def test_transaction(descr, dir, config, online, logfile):
     return_code = 1
