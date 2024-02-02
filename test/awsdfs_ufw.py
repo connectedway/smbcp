@@ -101,6 +101,9 @@ class StateMachine:
     def reset(self):
         try:
             subprocess.run(["sudo", "ufw", "--force", "reset"], check=True)
+
+            subprocess.run(["sudo", "ufw", "allow", "from", "any", "to", "any"], check=True)
+
         except subprocess.CalledProcessError as error:
             print(f"Error resetting UFW rules: {error}")
 

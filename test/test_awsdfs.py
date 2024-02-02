@@ -128,6 +128,7 @@ def run_command(command, fd):
     fd.write(result.stderr)
     fd.write("\n")
     fd.write(f"result: {result.returncode}\n\n")
+    fd.flush()
     return result.returncode
 
 
@@ -135,23 +136,57 @@ SPIRITDC = "172.31.17.154"
 SPIRITDCB = "172.31.30.112"
 BOTH = "0.0.0.0"
 
-
 @pytest.fixture(params=[BOTH, SPIRITDC, SPIRITDCB])
-def setup_teardown(request):
+def setup_teardown(request, logfile):
+
+    with open(logfile, "a") as fd:
+        fd.write ("Begin test\n")
+        fd.flush()
+
+    awsdfs_ufw_path = os.path.dirname(os.path.abspath(__file__)) + "/awsdfs_ufw.py"
+
+    awsdfs_ufw = subprocess.Popen(
+        ["python3", awsdfs_ufw_path],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+
+    awsdfs_ufw.stdin.write("reset\n")
+    awsdfs_ufw.stdin.flush()
 
     ip = request.param
-    if ip != BOTH:
+    if ip == SPIRITDC or ip == SPIRITDCB:
         #
         # Start up the firewall
         #
-        pass
+        if ip == SPIRITDC:
+            deny = "spiritdcb"
+        else:
+            deny = "spiritdc"
+
+        awsdfs_ufw.stdin.write(f"deny {deny}\n")
+        awsdfs_ufw.stdin.flush()
+
+        flush_stdout(awsdfs_ufw.stdout, fd)
+
     yield
 
     if ip != BOTH:
         #
         # teardown firewall
         #
-        pass
+        awsdfs_ufw.stdin.write(f"reset\n")
+        awsdfs_ufw.stdin.flush()
+
+    awsdfs_ufw.stdin.write(f"quit\n")
+    awsdfs_ufw.stdin.flush()
+
+    awsdfs_ufw.wait()
+
+    with open(logfile, "a") as fd:
+        for line in awsdfs_ufw.stdout:
+            fd.write(line)
 
 
 def test_authenticated(logfile):
@@ -166,6 +201,7 @@ def test_authenticated(logfile):
         fd.write("\n")
         fd.write("stderr:\n")
         fd.write(result.stderr)
+        fd.flush()
 
     assert result.returncode == 0, "Not currently logged into a domain"
 
@@ -191,6 +227,7 @@ def test_transaction(descr, dir, config, online, logfile):
 
     with open(logfile, "a") as fd:
         fd.write(f"Running {descr}\n\n")
+        fd.flush()
 
         command = f"smbcp {TEST_INPUT_FILE} {dir}/{TEST_INPUT_FILENAME}"
         return_code = run_command(command, fd)
@@ -206,6 +243,8 @@ def test_transaction(descr, dir, config, online, logfile):
 
         command = f"smbls {dir}"
         run_command(command, fd)
+
+        fd.write(f"*** {descr} Should Have Succeeded *** \n")
 
 
 @pytest.fixture(scope="module", autouse=True)
