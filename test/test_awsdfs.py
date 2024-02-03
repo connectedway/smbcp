@@ -57,18 +57,18 @@ import pytest
 #
 # Each test has a configuration.  From a test execution perspective
 # we will run tests with both spiritdc and spiritdcb opertional
-# just spiritdc, or just spiritdcb.  This is communicated to this test
-# module using the --online keyword:  i.e --online=both|spiritdc|spiritdcb
+# just spiritdc, or just spiritdcb.
 #
 # Tests on the otherhand have requirements.  They may require either
 # server be running, both servers be running, or a specific server be running.
 # This is specified with the config column of the tests table.  Valid
 # values are "any", "both", "spiritdc", or "spiritdcb".
 #
-# When running, the following scenarios are possible:
-#   online is both, any, both, spiritdc and spiritdcb all work.
-#   online is spiritdc, then any, and spiritdc work
-#   online is spiritdcb, then any and spiritdcb work
+# The test is parametrized and each test is run with three seperate
+# firewall configurations perfomed inside of the setup_teardown logic.
+# The setup_teardown will communicate to the test which firewall
+# configuration is in place so the test can skip those tests not
+# appropriate for a particular firewall configuration
 #
 
 #
@@ -132,15 +132,15 @@ def run_command(command, fd):
     return result.returncode
 
 
-SPIRITDC = "172.31.17.154"
-SPIRITDCB = "172.31.30.112"
-BOTH = "0.0.0.0"
+DENY_NONE = "none"
+DENY_SPIRITDC = "spiritdc"
+DENY_SPIRITDCB = "spiritdcb"
 
-@pytest.fixture(params=[BOTH, SPIRITDC, SPIRITDCB])
+@pytest.fixture(params=[DENY_NONE, DENY_SPIRITDC, DENY_SPIRITDCB])
 def setup_teardown(request, logfile):
 
     with open(logfile, "a") as fd:
-        fd.write ("Begin test\n")
+        fd.write (f"\n\nSetup Firewall for Denying {request.param}\n\n")
         fd.flush()
 
     awsdfs_ufw_path = os.path.dirname(os.path.abspath(__file__)) + "/awsdfs_ufw.py"
@@ -155,24 +155,16 @@ def setup_teardown(request, logfile):
     awsdfs_ufw.stdin.write("reset\n")
     awsdfs_ufw.stdin.flush()
 
-    ip = request.param
-    if ip == SPIRITDC or ip == SPIRITDCB:
+    if request.param != DENY_NONE:
         #
         # Start up the firewall
         #
-        if ip == SPIRITDC:
-            deny = "spiritdcb"
-        else:
-            deny = "spiritdc"
-
-        awsdfs_ufw.stdin.write(f"deny {deny}\n")
+        awsdfs_ufw.stdin.write(f"deny {request.param}\n")
         awsdfs_ufw.stdin.flush()
 
-        flush_stdout(awsdfs_ufw.stdout, fd)
+    yield request.param
 
-    yield
-
-    if ip != BOTH:
+    if request.param != DENY_NONE:
         #
         # teardown firewall
         #
@@ -185,6 +177,7 @@ def setup_teardown(request, logfile):
     awsdfs_ufw.wait()
 
     with open(logfile, "a") as fd:
+        fd.write (f"\n\nTeardown Firewall for Denying {request.param}\n\n")
         for line in awsdfs_ufw.stdout:
             fd.write(line)
 
@@ -208,7 +201,7 @@ def test_authenticated(logfile):
 
 @pytest.mark.usefixtures("setup_teardown")
 @pytest.mark.parametrize("descr, dir, config", tests)
-def test_transaction(descr, dir, config, online, logfile):
+def test_transaction(descr, dir, config, logfile, setup_teardown):
     return_code = 1
     #
     # When running, the following scenarios are possible:
@@ -216,11 +209,11 @@ def test_transaction(descr, dir, config, online, logfile):
     #   online is spiritdc, then any, and spiritdc work
     #   online is spiritdcb, then any and spiritdcb work
     #
-    if online == "both":
+    if setup_teardown == DENY_NONE:
         pass
-    elif online == "spiritdc" and (config == "any" or config == "spiritdc"):
+    elif setup_teardown == DENY_SPIRITDCB and (config == "any" or config == "spiritdc"):
         pass
-    elif online == "spiritdcb" and (config == "any" or config == "spiritdcb"):
+    elif setup_teardown == DENY_SPIRITDC and (config == "any" or config == "spiritdcb"):
         pass
     else:
         pytest.skip("Test not part of config")
