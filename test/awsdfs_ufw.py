@@ -4,18 +4,30 @@ import subprocess
 SPIRITDC = 0
 SPIRITDCB = 1
 
-
+#
+# Hosts Configuration.
+#
+# This table holds the currently active firewall configuration.
+# The initial state is not used.  It will be updated when we
+# reset the firewall.
+#
 hosts = [
     {"ip": "172.31.17.154", "state": "enabled", "toggle": False},
     {"ip": "172.31.30.112", "state": "disabled", "toggle": False},
 ]
 
 
-def manage_ip_rulesx(ip_address, state):
-    pass
-
-
 def allow(ip_address):
+    """
+    Add an allow input and output rules to the Ubuntu firewall
+
+    Args:
+        ip_address (str): The IP address to allow
+    """
+
+    #
+    # Run the firewall command
+    #
     try:
         subprocess.run(["sudo", "ufw", "allow", "from", ip_address], check=True)
         subprocess.run(["sudo", "ufw", "allow", "out", "to", ip_address], check=True)
@@ -24,6 +36,16 @@ def allow(ip_address):
 
 
 def deny(ip_address):
+    """
+    Add a deny input and output rules to the Ubuntu firewall
+
+    Args:
+        ip_address (str): The IP address to deny
+    """
+
+    #
+    # Run the firewall command
+    #
     try:
         subprocess.run(["sudo", "ufw", "deny", "from", ip_address], check=True)
         subprocess.run(["sudo", "ufw", "deny", "out", "to", ip_address], check=True)
@@ -32,6 +54,15 @@ def deny(ip_address):
 
 
 def enable():
+    """
+    Enable the firewall
+
+    Args:
+        None
+    """
+    #
+    # Run the firewall command
+    #
     try:
         subprocess.run(["sudo", "ufw", "enable"], check=True)
     except subprocess.CalledProcessError as error:
@@ -39,50 +70,29 @@ def enable():
 
 
 def disable():
+    """
+    Disable the firewall
+
+    Args:
+        None
+    """
+    #
+    # Run the firewall command
+    #
     try:
         subprocess.run(["sudo", "ufw", "disable"], check=True)
     except subprocess.CalledProcessError as error:
         print(f"Error enabling UFW: {error}")
 
 
-def manage_ip_rules(ip_address, state):
-    """
-    Manages UFW firewall rules for a given IP address and state.
-
-    Args:
-        ip_address (str): The IP address to manage.
-        state (str): The desired state ("enabled" or "disabled").
-    """
-
-    # Get existing rules with numbers
-    rules_output = subprocess.check_output(["sudo", "ufw", "status", "numbered"])
-    rules = rules_output.decode().splitlines()
-
-    # Find and delete existing rules for the IP, handling rule numbering
-    rule_numbers_to_delete = []
-    for i, rule in enumerate(rules):
-        if "from" in rule and ip_address in rule:
-            rule_numbers_to_delete.append(i + 1)
-        if "to" in rule and ip_address in rule:
-            rule_numbers_to_delete.append(i + 1)
-
-    # Delete rules in reverse order to avoid numbering issues
-    for rule_number in sorted(rule_numbers_to_delete, reverse=True):
-        try:
-            subprocess.run(["sudo", "ufw", "delete", str(rule_number)], check=True)
-        except subprocess.CalledProcessError as error:
-            print(f"Error deleting UFW rule {rule_number}: {error}")
-
-    # Add rules based on the state
-    if state == "enabled":
-        allow(ip_address)
-    elif state == "disabled":
-        deny(ip_address)
-    else:
-        print("Invalid state. Please use 'enabled' or 'disabled'.")
-
-
 class StateMachine:
+    """
+    UFW Asynchronous State Machine
+
+    We manage the state asynchronously so we can have an asyncrhonous
+    state transitions intermixed with user input
+    """
+
     def __init__(self):
         self.loop = asyncio.get_running_loop()
         self.interval = 0
@@ -95,64 +105,139 @@ class StateMachine:
         pass
 
     async def read_input(self):
+        """
+        Asyncrounously Read Input from Console
+        """
         command = await self.loop.run_in_executor(None, input, "awsdfs_ufw: ")
         return command
 
+    def status(self):
+        """
+        Perform a status of the firewall
+        """
+        try:
+            subprocess.run(["sudo", "ufw", "status", "numbered"], check=True)
+
+        except subprocess.CalledProcessError as error:
+            print(f"Error getting UFW status: {error}")
+
     def reset(self):
+        """
+        Reset the firewall
+        """
         try:
             subprocess.run(["sudo", "ufw", "--force", "reset"], check=True)
 
-            subprocess.run(["sudo", "ufw", "allow", "from", "any", "to", "any"], check=True)
-
         except subprocess.CalledProcessError as error:
             print(f"Error resetting UFW rules: {error}")
-
+        #
+        # Reset our state.
+        #
         for i in range(2):
-            manage_ip_rules(hosts[i]["ip"], "enabled")
+            allow(hosts[i]["ip"])
             hosts[i]["state"] = "enabled"
             hosts[i]["toggle"] = False
+
+        #
+        # Add the catch all rules to allow traffic from all and to all
+        #
+        # We add this, although we'd rather not.  The problem is, if the
+        # system crashes while the firewall is active, you will not be able
+        # to get to the system over the network.  We could be more specific
+        # and say, we allow ssh or rdp traffic throught the VPN.  But this
+        # is easier.
+        #
+        try:
+            subprocess.run(
+                ["sudo", "ufw", "allow", "from", "any", "to", "any"], check=True
+            )
+        except subprocess.CalledProcessError as error:
+            print(f"Error adding default UFW rules: {error}")
+        #
+        # Now enable the firewall
+        #
         enable()
 
     def allow(self, ip):
-        manage_ip_rules(ip, "enabled")
+        """
+        Add an allow rule for the ip
+
+        NOTE: This is here for future only.  It is not currently called
+
+        Args:
+            ip (str): IP address to allow traffic to and from
+        """
+        allow(ip)
 
     def deny(self, host):
+        """
+        Add an deny rule for the ip
+
+        Args:
+            host (str): host name to deny traffic to and from
+        """
+        #
+        # Convert the host name to an IP
+        #
         if host == "spiritdc":
-            ip = hosts[0]["ip"]
+            ip = hosts[SPIRITDC]["ip"]
         elif host == "spiritdcb":
-            ip = hosts[1]["ip"]
+            ip = hosts[SPIRITDCB]["ip"]
         else:
             print(f"Bad host name")
             return
-
-        manage_ip_rules(ip, "disabled")
+        #
+        # Deny traffic to and from the ip
+        #
+        deny(ip)
 
     def toggle(self, host):
+        """
+        Toggle the enable/disable status of the host
+        """
         if host == "spiritdc":
-            hosts[0]["toggle"] = True
+            hosts[SPIRITDC]["toggle"] = True
         elif host == "spiritdcb":
-            hosts[1]["toggle"] = True
+            hosts[SPIRITDCB]["toggle"] = True
         else:
             print(f"Bad host name")
             return
 
     async def run_timer(self):
+        """
+        The toggle timer
+        """
         while True:
             try:
+                #
+                # Sleep for the requisite time
+                #
                 await asyncio.sleep(self.interval)
-                for i in [0, 1]:
+                #
+                # Now for both hosts, if toggling, change state
+                #
+                for i in [SPIRITDC, SPIRITDCB]:
                     if hosts[i]["toggle"]:
                         if hosts[i]["state"] == "enabled":
-                            manage_ip_rules(hosts[i]["ip"], "disabled")
+                            #
+                            # Currently enabled, deny
+                            #
+                            deny(hosts[i]["ip"])
                             hosts[i]["state"] = "disabled"
                         else:
-                            manage_ip_rules(hosts[i]["ip"], "enabled")
+                            #
+                            # Currently denied, enable
+                            #
+                            allow(hosts[i]["ip"])
                             hosts[i]["state"] = "enabled"
             except asyncio.CancelledError:
                 self.timer_task = None
                 break
 
     async def run(self):
+        """
+        The asynchronou run routine for the State Machine
+        """
         try:
             while True:
                 #
@@ -167,7 +252,7 @@ class StateMachine:
                 # disable spiritdc [-toggle]
                 # disable piritdcb [-toggle]
                 # reset
-                # reest enables the firewall and
+                # reset enables the firewall and
                 #    allows input and output on all
                 #    sets up two state spiritdc and spiritdcb
                 #    the state for each is [up, down]
@@ -197,6 +282,8 @@ class StateMachine:
                         break
                     elif parts[0] == "reset":
                         self.reset()
+                    elif parts[0] == "status":
+                        self.status()
                     elif parts[0] == "help":
                         print(f"Valid Commands:")
                         print(f"   quit: reset firewall and quit")
@@ -226,24 +313,38 @@ class StateMachine:
                 self.timer_task.cancel()
 
     async def start_timer(self, interval):
+        """
+        Start the timer at specified interval
+        """
         self.interval = interval
         self.timer_task = asyncio.create_task(self.run_timer())
 
     def stop_timer(self):
+        """
+        Stop the timer
+        """
         if self.timer_task is not None:
             self.timer_task.cancel()
 
 
 async def main():
+    """
+    Main asynchronous Routine
+    """
+    #
+    # Intantitae the state machine
+    #
     state_machine = StateMachine()
 
     # Schedule timers as needed within the state machine
-    # Example:
     await state_machine.start_timer(5)
 
     # Run both coroutines concurrently
     await state_machine.run()
 
 
+#
+# If run from the command line, run the main routine
+#
 if __name__ == "__main__":
     asyncio.run(main())
