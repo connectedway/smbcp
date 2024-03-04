@@ -118,6 +118,11 @@ TEST_OUTPUT_FILENAME = "test_output_file.txt"
 TEST_OUTPUT_FILE = f"/tmp/{TEST_OUTPUT_FILENAME}"
 DFS_CACHE_FILE = "/tmp/dfs_cache.xml"
 
+#
+# Test file size.  Keep transfers small on AWS.  We pay for it
+#
+# TEST_FILE_SIZE = "786438"
+TEST_FILE_SIZE = "1024"
 
 def run_command(command, fd):
     """
@@ -440,7 +445,7 @@ def setup_module():
     # Create test file
     #
     with open(TEST_INPUT_FILE, "w") as output_file:
-        command = f"dd if=/dev/urandom bs=786438 count=1 | base64"
+        command = f"dd if=/dev/urandom bs={TEST_FILE_SIZE} count=1 | base64"
         result = subprocess.run(command, shell=True, stdout=output_file, text=True)
     #
     # Run the tests
