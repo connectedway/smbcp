@@ -19,6 +19,10 @@ smbls: smbls.o
 %.o: %.c
 	$(CC) -g -c $(CFLAGS) -o $@ $< 
 
+.PHONY: test_awsdfs
+test_awsdfs:
+	pytest test/test_awsdfs.py
+
 clean:
 	rm -f smbcp.o smbcp
 	rm -f smbrm.o smbrm
