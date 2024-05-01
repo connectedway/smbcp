@@ -179,8 +179,7 @@ DENY_CREATIVITY = "creativity"
 DENY_INTUITION = "intuition"
 
 
-#@pytest.fixture(params=[DENY_NONE, DENY_CREATIVITY, DENY_INTUITION])
-@pytest.fixture(params=[DENY_NONE])
+@pytest.fixture(params=[DENY_NONE, DENY_CREATIVITY, DENY_INTUITION])
 def setup_teardown(request, logfile):
     """
     pytest setup/teardown logic for transaction test
@@ -199,21 +198,23 @@ def setup_teardown(request, logfile):
     #
     # Find the path of the firewall Utility
     #
-#    awsdfs_ufw_path = os.path.dirname(os.path.abspath(__file__)) + "/awsdfs_ufw.py"
+    dfs_iptables_path = os.path.dirname(
+        os.path.abspath(__file__)
+    ) + "/dfs_iptables.py"
 
     #
     # Spawn off the firewall utility
     #
-#    awsdfs_ufw = subprocess.Popen(
-#        ["python3", awsdfs_ufw_path],
-#        stdin=subprocess.PIPE,
-#        stdout=subprocess.PIPE,
-#        text=True,
-#    )
+    dfs_iptables = subprocess.Popen(
+        ["python3", dfs_iptables_path],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
     #
     # Set stdout as non blocking so we can read output asynchronously
     #
-#    fcntl.fcntl(awsdfs_ufw.stdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
+    fcntl.fcntl(dfs_iptables.stdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
     #
     # Open our Logfile
     #
@@ -229,27 +230,27 @@ def setup_teardown(request, logfile):
         except FileNotFoundError:
             pass
 
-#        fd.write(f"\n\nSetup Firewall for Denying {request.param}\n\n")
+        fd.write(f"\n\nSetup Firewall for Denying {request.param}\n\n")
         #
         # Reset the firewall.  This will enable the firewall and
         # allow input from and output to all hosts
         #
-#        awsdfs_ufw.stdin.write("reset\n")
-#        awsdfs_ufw.stdin.flush()
+        dfs_iptables.stdin.write("reset\n")
+        dfs_iptables.stdin.flush()
         #
         # Check if we want to set up deny rules
         #
-#        if request.param != DENY_NONE:
+        if request.param != DENY_NONE:
             #
             # Deny traffic to the specified host
             #
-#            awsdfs_ufw.stdin.write(f"deny {request.param}\n")
-#            awsdfs_ufw.stdin.flush()
+            dfs_iptables.stdin.write(f"deny {request.param}\n")
+            dfs_iptables.stdin.flush()
             #
             # And get the firewall status for our log
             #
-#            awsdfs_ufw.stdin.write(f"status\n")
-#            awsdfs_ufw.stdin.flush()
+            dfs_iptables.stdin.write(f"status\n")
+            dfs_iptables.stdin.flush()
 
         #
         # Scrape output from the firewall and log.
@@ -260,9 +261,9 @@ def setup_teardown(request, logfile):
         # deny rule may not appear in the log file until later in
         # test output
         #
-#        for line in awsdfs_ufw.stdout:
-#            fd.write(line)
-#        fd.flush()
+        for line in dfs_iptables.stdout:
+            fd.write(line)
+        fd.flush()
     #
     # Run the test transaction
     #
@@ -270,34 +271,34 @@ def setup_teardown(request, logfile):
     #
     # Reopen the log file
     #
-#    with open(logfile, "a") as fd:
-#        fd.write(f"\n\nTeardown Firewall for Denying {request.param}\n\n")
+    with open(logfile, "a") as fd:
+        fd.write(f"\n\nTeardown Firewall for Denying {request.param}\n\n")
 
-#        if request.param != DENY_NONE:
+        if request.param != DENY_NONE:
             #
             # Reset the firewall
             #
-#            awsdfs_ufw.stdin.write(f"reset\n")
-#            awsdfs_ufw.stdin.flush()
+            dfs_iptables.stdin.write(f"reset\n")
+            dfs_iptables.stdin.flush()
             #
             # Capture firewall status after the reset
             #
-#            awsdfs_ufw.stdin.write(f"status\n")
-#            awsdfs_ufw.stdin.flush()
+            dfs_iptables.stdin.write(f"status\n")
+            dfs_iptables.stdin.flush()
         #
         # Quite the firewall app
         #
-#        awsdfs_ufw.stdin.write(f"quit\n")
-#        awsdfs_ufw.stdin.flush()
+        dfs_iptables.stdin.write(f"quit\n")
+        dfs_iptables.stdin.flush()
         #
         # Wait for the firewall app to complete
         #
-#        awsdfs_ufw.wait()
+        dfs_iptables.wait()
         #
         # Now flush the output of the firewall app to our logfile
         #
-#        for line in awsdfs_ufw.stdout:
-#            fd.write(line)
+        for line in dfs_iptables.stdout:
+            fd.write(line)
 
 
 def test_authenticated(logfile):
