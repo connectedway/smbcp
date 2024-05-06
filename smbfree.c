@@ -9,6 +9,9 @@
 
 #include <ofc/file.h>
 
+/**
+ * \{
+ */
 int main (int argc, char **argv)
 {
   OFC_TCHAR *sharename;

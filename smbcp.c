@@ -16,6 +16,10 @@
 #include <ofc/queue.h>
 #include <of_smb/framework.h>
 
+/**
+ * \{
+ */
+
 /*
  * Buffering definitions.  We test using overlapped asynchronous I/O.  
  */
@@ -884,3 +888,6 @@ int main (int argc, char **argp)
   return (0);
 }
 
+/**
+ * \}
+ */

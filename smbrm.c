@@ -12,9 +12,10 @@
 #include <ofc/handle.h>
 #include <ofc/types.h>
 #include <ofc/file.h>
-#include <ofc/waitset.h>
-#include <ofc/queue.h>
-#include <of_smb/framework.h>
+
+/**
+ * \{
+ */
 
 static OFC_DWORD rm(OFC_CTCHAR *wfilename)
 {

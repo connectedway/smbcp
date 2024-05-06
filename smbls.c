@@ -17,6 +17,9 @@
 #include <ofc/time.h>
 #include <of_smb/framework.h>
 
+/**
+ * \{
+ */
 static wchar_t *MakeFilename(const wchar_t *dirname, const wchar_t *name)
 {
   size_t dirlen;
