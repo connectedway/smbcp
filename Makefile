@@ -1,6 +1,7 @@
 CC = gcc
 DESTDIR ?= /usr/local
 BINDIR ?= bin/openfiles
+ROOT ?= /root
 
 all: smbcp smbrm smbfree smbls
 
@@ -35,7 +36,10 @@ install:
 	install -m 755 smbrm $(DESTDIR)/$(BINDIR)
 	install -m 755 smbfree $(DESTDIR)/$(BINDIR)
 	install -m 755 smbls $(DESTDIR)/$(BINDIR)
-	ldconfig
+	install -d $(DESTDIR)/$(BINDIR)
+	install -m 755 test/conftest.py ${ROOT}/test
+	install -m 755 test/test_dfs.py ${ROOT}/test
+	install -m 755 test/dfs-iptables.py ${ROOT}/test
 
 uninstall:
 	@-rm $(DESTDIR)/$(BINDIR)/smbcp 2> /dev/null || true
