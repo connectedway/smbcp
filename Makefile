@@ -36,7 +36,7 @@ install:
 	install -m 755 smbrm $(DESTDIR)/$(BINDIR)
 	install -m 755 smbfree $(DESTDIR)/$(BINDIR)
 	install -m 755 smbls $(DESTDIR)/$(BINDIR)
-	install -d $(DESTDIR)/$(ROOT)
+	install -d $(DESTDIR)/$(ROOT)/test
 	install -m 755 test/conftest.py $(DESTDIR)/$(ROOT)/test
 	install -m 755 test/test_dfs.py $(DESTDIR)/$(ROOT)/test
 	install -m 755 test/dfs_iptables.py $(DESTDIR)/$(ROOT)/test
