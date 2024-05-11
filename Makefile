@@ -37,9 +37,9 @@ install:
 	install -m 755 smbfree $(DESTDIR)/$(BINDIR)
 	install -m 755 smbls $(DESTDIR)/$(BINDIR)
 	install -d $(DESTDIR)/$(BINDIR)
-	install -m 755 test/conftest.py ${ROOT}/test
-	install -m 755 test/test_dfs.py ${ROOT}/test
-	install -m 755 test/dfs-iptables.py ${ROOT}/test
+	install -m 755 test/conftest.py $(DESTDIR)/$(ROOT)/test
+	install -m 755 test/test_dfs.py $(DESTDIR)/$(ROOT)/test
+	install -m 755 test/dfs-iptables.py $(DESTDIR)/$(ROOT)/test
 
 uninstall:
 	@-rm $(DESTDIR)/$(BINDIR)/smbcp 2> /dev/null || true
