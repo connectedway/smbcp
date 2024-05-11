@@ -39,7 +39,7 @@ install:
 	install -d $(DESTDIR)/$(ROOT)
 	install -m 755 test/conftest.py $(DESTDIR)/$(ROOT)/test
 	install -m 755 test/test_dfs.py $(DESTDIR)/$(ROOT)/test
-	install -m 755 test/dfs-iptables.py $(DESTDIR)/$(ROOT)/test
+	install -m 755 test/dfs_iptables.py $(DESTDIR)/$(ROOT)/test
 
 uninstall:
 	@-rm $(DESTDIR)/$(BINDIR)/smbcp 2> /dev/null || true
