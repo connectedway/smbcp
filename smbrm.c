@@ -13,6 +13,7 @@
 #include <ofc/types.h>
 #include <ofc/file.h>
 
+#include "smbinit.h"
 /**
  * \{
  */
@@ -57,6 +58,8 @@ int main (int argc, char **argp)
   mbstate_t ps;
   const char *cursor;
 
+  smbcp_init();
+  
   if (argc < 2)
     {
       printf ("Usage: smbrm <destination>\n");

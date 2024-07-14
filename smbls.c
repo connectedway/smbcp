@@ -17,6 +17,8 @@
 #include <ofc/time.h>
 #include <of_smb/framework.h>
 
+#include "smbinit.h"
+
 /**
  * \{
  */
@@ -196,6 +198,8 @@ int main (int argc, char **argp)
   size_t len;
   mbstate_t ps;
   const char *cursor;
+
+  smbcp_init();
 
   if (argc < 2)
     {

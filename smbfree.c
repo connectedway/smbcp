@@ -9,6 +9,8 @@
 
 #include <ofc/file.h>
 
+#include "smbinit.h"
+
 /**
  * \{
  */
@@ -30,6 +32,8 @@ int main (int argc, char **argv)
   long int avail;
   long int total;
 
+  smbcp_init();
+  
   if (argc < 2)
     {
       printf ("Usage: smbfree <destination>\n");
