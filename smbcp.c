@@ -9,11 +9,11 @@
 #include <unistd.h>
 
 #include <ofc/config.h>
+#include <ofc/framework.h>
 #include <ofc/handle.h>
 #include <ofc/types.h>
 #include <ofc/file.h>
 #include <ofc/waitset.h>
-#include <ofc/perist.h>
 #include <ofc/queue.h>
 #include <of_smb/framework.h>
 
@@ -874,7 +874,7 @@ void smbcp_configure(void);
  * initialize, configure, and startup an Open Files (ConnectSMB) stack.
  */
 
-void smsbcp_init(void)
+void smbcp_init(void)
 {
 #if defined(INIT_ON_LOAD)
   /*
@@ -896,15 +896,13 @@ void smsbcp_init(void)
    * Startup SMB.  The argument is a handle to a scheduler (i.e. a
    * run loop thread.  If Null, one will be created for it 
    */
-  of_smb_startup(OFC_NULL);
+  of_smb_startup(OFC_HANDLE_NULL);
 #endif
-  return (0);
 }
 
-#if !defined(OFC_PERSIST)
+#if !defined(INIT_ON_LOAD)
 void smbcp_configure(void)
 {
-  OFC_INT ret;
 #if defined(OFC_PERSIST)
   /*
    * Our build supports loading configuration from a file.
@@ -1017,7 +1015,7 @@ void smbcp_configure(void)
     0x04, 0x5d, 0x88, 0x8a, 0xeb, 0x1c, 0xc9, 0x11,
     0x9f, 0xe8, 0x08, 0x00, 0x2b, 0x10, 0x48, 0x60
   };
-  ofc_framework_set_uid(&uuid);
+  ofc_framework_set_uuid(&uuid);
   /*
    * bootstrap_dcs can be explicity specified, but if
    * not set, DFS will query DNS.  So no need to configure
@@ -1036,6 +1034,7 @@ void smbcp_configure(void)
    */
 #endif
 }
+#endif
 
 int main (int argc, char **argp)
 {
