@@ -5,17 +5,17 @@ ROOT ?= /root
 
 all: smbcp smbrm smbfree smbls
 
-smbcp: smbcp.o
-	$(CC) $(LDFLAGS) -o $@ $< -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
+smbcp: smbcp.o smbinit.o
+	$(CC) $(LDFLAGS) -o $@ $^ -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
 
-smbrm: smbrm.o
-	$(CC) $(LDFLAGS) -o $@ $< -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
+smbrm: smbrm.o smbinit.o
+	$(CC) $(LDFLAGS) -o $@ $^ -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
 
-smbfree: smbfree.o
-	$(CC) $(LDFLAGS) -o $@ $< -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
+smbfree: smbfree.o smbinit.o
+	$(CC) $(LDFLAGS) -o $@ $^ -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
 
-smbls: smbls.o
-	$(CC) $(LDFLAGS) -o $@ $< -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
+smbls: smbls.o smbinit.o
+	$(CC) $(LDFLAGS) -o $@ $^ -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
 
 %.o: %.c
 	$(CC) -g -c $(CFLAGS) -o $@ $< 
@@ -29,6 +29,7 @@ clean:
 	rm -f smbrm.o smbrm
 	rm -f smbfree.o smbfree
 	rm -f smbls.o smbls
+	rm -f smbinit.o
 
 install:
 	install -d $(DESTDIR)/$(BINDIR)

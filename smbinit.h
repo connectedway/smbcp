@@ -1,5 +1,5 @@
-#if !defined(__smbinit.h__)
-#define __smbinit.h__
+#if !defined(__smbinit_h__)
+#define __smbinit_h__
 
 void smbcp_init(void);
 #endif

@@ -210,14 +210,16 @@ void smbcp_configure(void)
   /*
    * Set the UUID.  This is required in an SMB negotiate request
    * but it doesn't appear to be checked by servers.  Ideally
-   * though this should be a unique number.
+   * though this should be a unique number.  We are passing in a 
+   * string.  Make sure it is null terminated.
    */
-  static OFC_UUID uuid =
+  static const OFC_CHAR uuid[] = 
   {
     0x04, 0x5d, 0x88, 0x8a, 0xeb, 0x1c, 0xc9, 0x11,
-    0x9f, 0xe8, 0x08, 0x00, 0x2b, 0x10, 0x48, 0x60
+    0x9f, 0xe8, 0x08, 0x00, 0x2b, 0x10, 0x48, 0x60,
+    0x00
   };
-  ofc_framework_set_uuid(&uuid);
+  ofc_framework_set_uuid(uuid);
   /*
    * bootstrap_dcs can be explicity specified, but if
    * not set, DFS will query DNS.  So no need to configure
