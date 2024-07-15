@@ -75,7 +75,6 @@ void smbcp_configure(void);
  * This routine is an example startup routine that will show how to explicitly
  * initialize, configure, and startup an Open Files (ConnectSMB) stack.
  */
-
 void smbcp_init(void)
 {
 #if defined(INIT_ON_LOAD)
