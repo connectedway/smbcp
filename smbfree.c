@@ -89,6 +89,11 @@ int main (int argc, char **argv)
 
   free(sharename);
 
+  /*
+   * Deactivate the openfiles stack
+   */
+  smbcp_deactivate()
+
   return (ret);
 }
   

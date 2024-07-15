@@ -237,5 +237,26 @@ void smbcp_configure(void)
    */
 #endif
 }
+
+/**
+ * Routine to deactivate the openfiles stack.
+ *
+ * This can be called implicitly on exit by setting the build
+ * configuration variable INIT_ON_LOAD.  When performing manual
+ * initialization, this should be called when shutting down the stack
+ */
+void smbcp_deactivate(void)
+{
+  /*
+   * Shutdown and deactivate SMB
+   */
+  of_smb_shutdown();
+  of_smb_destroy();
+  /*
+   * Shutdown and deactivate the core framework
+   */
+  ofc_framework_shutdown();
+  ofc_framework_destroy();
+}
 #endif
 
