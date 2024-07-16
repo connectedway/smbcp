@@ -92,7 +92,7 @@ int main (int argc, char **argv)
   /*
    * Deactivate the openfiles stack
    */
-  smbcp_deactivate()
+  smbcp_deactivate();
 
   return (ret);
 }

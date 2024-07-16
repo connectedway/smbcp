@@ -79,6 +79,11 @@ int main (int argc, char **argp)
   
   free(wfilename);
 
+  /*
+   * Deactivate the openfiles stack
+   */
+  smbcp_deactivate();
+
   if (ret == OFC_ERROR_SUCCESS)
     {
       printf("[ok]\n");
@@ -90,11 +95,6 @@ int main (int argc, char **argp)
       printf("%s\n", ofc_get_error_string(ret));
       exit(1);
     }
-
-  /*
-   * Deactivate the openfiles stack
-   */
-  smbcp_deactivate()
 
   return (0);
 }
