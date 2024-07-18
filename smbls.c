@@ -220,23 +220,25 @@ int main (int argc, char **argp)
   
   free(wfilename);
 
-  /*
-   * Deactivate the openfiles stack
-   */
-  smbcp_deactivate();
-
+  int status;
   if (ret == OFC_ERROR_SUCCESS || ret == OFC_ERROR_NO_MORE_FILES)
     {
       printf("[ok]\n");
-      exit(0);
+      status = 0;
     }
   else
     {
       printf("[failed]\n");
       printf("%s\n", ofc_get_error_string(ret));
-      exit(1);
+      status = 1;
     }
 
-  return (0);
+  /*
+   * Deactivate the openfiles stack
+   */
+  printf("Deactivating Stack\n");
+  smbcp_deactivate();
+
+  exit(status);
 }
 

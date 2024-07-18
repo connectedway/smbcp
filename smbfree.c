@@ -92,6 +92,7 @@ int main (int argc, char **argv)
   /*
    * Deactivate the openfiles stack
    */
+  printf("Deactivating Stack\n");
   smbcp_deactivate();
 
   return (ret);
