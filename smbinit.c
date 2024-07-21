@@ -238,6 +238,8 @@ void smbcp_configure(void)
 #endif
 }
 
+#endif
+
 /**
  * Routine to deactivate the openfiles stack.
  *
@@ -247,6 +249,7 @@ void smbcp_configure(void)
  */
 void smbcp_deactivate(void)
 {
+#if !defined(INIT_ON_LOAD)
   /*
    * Shutdown and deactivate SMB
    */
@@ -257,6 +260,7 @@ void smbcp_deactivate(void)
    */
   ofc_framework_shutdown();
   ofc_framework_destroy();
-}
 #endif
+}
+
 
