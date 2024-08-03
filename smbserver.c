@@ -13,9 +13,18 @@
 #include <ofc/handle.h>
 #include <ofc/types.h>
 #include <ofc/net.h>
+#include <ofc/process.h>
 #include <of_smb/framework.h>
 
 #include "smbinit.h"
+
+static OFC_BOOL kill_me = OFC_FALSE;
+
+static OFC_VOID term_handler(OFC_INT signal)
+{
+  printf("Terminating SMB Server\n");
+  kill_me = OFC_TRUE;
+}
 
 int main (int argc, char **argp)
 {
@@ -28,13 +37,15 @@ int main (int argc, char **argp)
 
   OFC_HANDLE hApp = of_smb_startup_server(OFC_HANDLE_NULL);
 
-  while (1)
+  ofc_process_term_trap(term_handler);
+
+  while (!kill_me)
     {
-      sleep(10000);
+      sleep(1000);
     }
-#if 0
-  of_smb_server_shutdown(hScheduler);
-#endif
+
+  of_smb_shutdown_server(hApp);
+
 #else
   printf("Server Not Supported\n");
 #endif
