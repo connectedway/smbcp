@@ -41,7 +41,7 @@ int main (int argc, char **argp)
 
   while (!kill_me)
     {
-      sleep(1000);
+      sleep(1);
     }
 
   of_smb_shutdown_server(hApp);
