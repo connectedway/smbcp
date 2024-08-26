@@ -8,9 +8,12 @@ ifneq ("$(shell uname -o)","Darwin")
   SSL = "-lssl"
 endif
 
-all: smbcp smbrm smbfree smbls smbserver
+all: smbcp smbrm smbfree smbls smbserver smbchat
 
 smbcp: smbcp.o smbinit.o
+	$(CC) $(LDFLAGS) -o $@ $^ $(ASNEEDED) -lof_smb_shared -lof_core_shared $(SSL) -lkrb5 -lgssapi_krb5 
+
+smbchat: smbchat.o smbinit.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(ASNEEDED) -lof_smb_shared -lof_core_shared $(SSL) -lkrb5 -lgssapi_krb5 
 
 smbrm: smbrm.o smbinit.o
@@ -34,6 +37,7 @@ test_awsdfs:
 
 clean:
 	rm -f smbcp.o smbcp
+	rm -f smbchat.o smbchat
 	rm -f smbrm.o smbrm
 	rm -f smbfree.o smbfree
 	rm -f smbls.o smbls
@@ -47,6 +51,7 @@ install:
 	install -m 755 smbfree $(DESTDIR)/$(BINDIR)
 	install -m 755 smbls $(DESTDIR)/$(BINDIR)
 	install -m 755 smbserver $(DESTDIR)/$(BINDIR)
+	install -m 755 smbchat $(DESTDIR)/$(BINDIR)
 	install -d $(DESTDIR)/$(ROOT)/test
 	install -m 755 test/conftest.py $(DESTDIR)/$(ROOT)/test
 	install -m 755 test/test_dfs.py $(DESTDIR)/$(ROOT)/test
