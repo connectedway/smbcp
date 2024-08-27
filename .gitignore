@@ -6,6 +6,7 @@ smbfree
 smbls
 smbrm
 smbserver
+smbchat
 of_regression.log
 test/__pycache__
 
