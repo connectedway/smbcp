@@ -130,7 +130,7 @@ void smbcp_configure(void)
    * Network Monitoring will monitor for interface interruption.
    */
 #if defined(SMBCP_NETWORK_AUTOCONFIG)
-  ofc_persist_set_interface_type(OFC_CONFIG_ICONFIG_AUTO);
+  ofc_framework_set_interface_discovery(OFC_TRUE);
 #else
   /*
    * Turn off interface discovery
