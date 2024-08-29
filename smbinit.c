@@ -97,6 +97,7 @@ void smbcp_init(void)
    * Startup SMB.  The argument is a handle to a scheduler (i.e. a
    * run loop thread.  If Null, one will be created for it 
    */
+  ofc_framework_startup();
   of_smb_startup(OFC_HANDLE_NULL);
 #endif
 }
@@ -113,7 +114,7 @@ void smbcp_configure(void)
    * have a default os to be safe, you probably should
    * explicitly specify the location.
    */
-  ofc_framework_load(TSTR("/etc/openfiles.xml"));
+  ofc_framework_load(OFC_NULL);
 #else
   /*
    * We will explicity configure the stack.
@@ -238,6 +239,8 @@ void smbcp_configure(void)
 #endif
 }
 
+#endif
+
 /**
  * Routine to deactivate the openfiles stack.
  *
@@ -247,6 +250,7 @@ void smbcp_configure(void)
  */
 void smbcp_deactivate(void)
 {
+#if !defined(INIT_ON_LOAD)
   /*
    * Shutdown and deactivate SMB
    */
@@ -257,6 +261,7 @@ void smbcp_deactivate(void)
    */
   ofc_framework_shutdown();
   ofc_framework_destroy();
-}
 #endif
+}
+
 
