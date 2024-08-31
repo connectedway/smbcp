@@ -97,6 +97,7 @@ void smbcp_init(void)
    * Startup SMB.  The argument is a handle to a scheduler (i.e. a
    * run loop thread.  If Null, one will be created for it 
    */
+  ofc_framework_startup();
   of_smb_startup(OFC_HANDLE_NULL);
 #endif
 }
@@ -113,7 +114,7 @@ void smbcp_configure(void)
    * have a default os to be safe, you probably should
    * explicitly specify the location.
    */
-  ofc_framework_load(TSTR("/etc/openfiles.xml"));
+  ofc_framework_load(OFC_NULL);
 #else
   /*
    * We will explicity configure the stack.
@@ -129,7 +130,7 @@ void smbcp_configure(void)
    * Network Monitoring will monitor for interface interruption.
    */
 #if defined(SMBCP_NETWORK_AUTOCONFIG)
-  ofc_persist_set_interface_type(OFC_CONFIG_ICONFIG_AUTO);
+  ofc_framework_set_interface_discovery(OFC_TRUE);
 #else
   /*
    * Turn off interface discovery
