@@ -8,7 +8,10 @@ ifneq ("$(shell uname -o)","Darwin")
   SSL = "-lssl"
 endif
 
-all: smbcp smbrm smbfree smbls smbserver
+all: smbcp smbrm smbfree smbls smbserver smbsize
+
+smbsize: smbsize.o smbinit.o
+	$(CC) $(LDFLAGS) -o $@ $^ $(ASNEEDED) -lof_smb_shared -lof_core_shared $(SSL) -lkrb5 -lgssapi_krb5 
 
 smbcp: smbcp.o smbinit.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(ASNEEDED) -lof_smb_shared -lof_core_shared $(SSL) -lkrb5 -lgssapi_krb5 
@@ -33,6 +36,7 @@ test_awsdfs:
 	pytest test/test_awsdfs.py
 
 clean:
+	rm -f smbsize.o smbsize
 	rm -f smbcp.o smbcp
 	rm -f smbrm.o smbrm
 	rm -f smbfree.o smbfree
@@ -42,6 +46,7 @@ clean:
 
 install:
 	install -d $(DESTDIR)/$(BINDIR)
+	install -m 755 smbsize $(DESTDIR)/$(BINDIR)
 	install -m 755 smbcp $(DESTDIR)/$(BINDIR)
 	install -m 755 smbrm $(DESTDIR)/$(BINDIR)
 	install -m 755 smbfree $(DESTDIR)/$(BINDIR)
@@ -53,6 +58,7 @@ install:
 	install -m 755 test/dfs_iptables.py $(DESTDIR)/$(ROOT)/test
 
 uninstall:
+	@-rm $(DESTDIR)/$(BINDIR)/smbsize 2> /dev/null || true
 	@-rm $(DESTDIR)/$(BINDIR)/smbcp 2> /dev/null || true
 	@-rm $(DESTDIR)/$(BINDIR)/smbrm 2> /dev/null || true
 	@-rm $(DESTDIR)/$(BINDIR)/smbfree 2> /dev/null || true
