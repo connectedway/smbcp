@@ -56,8 +56,8 @@ static OFC_DWORD getsizebyhandle(OFC_CTCHAR *wfilename)
       else
 	{
 	  printf("Size Info of %S by Handle:\n", wfilename);
-	  printf("  Allocation Size: %d bytes\n", info.AllocationSize);
-	  printf("  End of File: %d\n", info.EndOfFile);
+	  printf("  Allocation Size: %lld bytes\n", info.AllocationSize);
+	  printf("  End of File: %lld\n", info.EndOfFile);
 	}
       OfcCloseHandle(write_file);
     }
@@ -85,7 +85,7 @@ static OFC_DWORD getsize(OFC_CTCHAR *wfilename)
       OFC_UINT64 file_size;
       OFC_LARGE_INTEGER_SET(file_size, info.nFileSizeLow, info.nFileSizeHigh);
       printf("Size Info of %S by Name:\n", wfilename);
-      printf("  File Size %ld\n", file_size);
+      printf("  File Size %llu\n", file_size);
     }
 
   return (dwLastError);
