@@ -3,7 +3,7 @@ DESTDIR ?= /usr/local
 BINDIR ?= bin/openfiles
 ROOT ?= /root
 
-all: smbcp smbrm smbfree smbls smbssize
+all: smbcp smbrm smbfree smbls smbsize
 
 smbsize: smbsize.o smbinit.o
 	$(CC) $(LDFLAGS) -o $@ $^ -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
