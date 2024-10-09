@@ -209,30 +209,39 @@ int main (int argc, char **argp)
       OFC_LPTSTR orig_filename;
       OFC_LPTSTR filename;
       OFC_SIZET rem;
+      OFC_LPCTSTR username;
+      OFC_LPCTSTR password;
+      OFC_LPCTSTR domain;
+      OFC_LPCTSTR uncInput;
+
+      username = TSTR("");
+      password = TSTR("");
+      domain = TSTR("FILE%3A/var/tmp/kerberos/ccache");
+      uncInput = TSTR("15.6.28.121/snf/folder");
 
       filename = OFC_NULL;
       rem = 0;
       len = ofc_path_make_urlW(&filename,
 			       &rem,
+			       username,
+			       password,
+			       domain,
+			       uncInput,
 			       OFC_NULL,
 			       OFC_NULL,
-			       TSTR("FILE%3A/var/tmp/kerberos/krb5cc_1fa70841-fce1-404d-b855-1c951daa0df2"),
-			       TSTR("15.6.28.121"),
-			       TSTR("snf"),
-			       TSTR("subdir1/subir2"),
-			       TSTR("filename.ext"));
+			       OFC_NULL);
       rem = len + 1;
       orig_filename = malloc(rem * sizeof(OFC_TCHAR));
       filename = orig_filename;
       len = ofc_path_make_urlW(&filename,
 			       &rem,
+			       username,
+			       password,
+			       domain,
+			       uncInput,
 			       OFC_NULL,
 			       OFC_NULL,
-			       TSTR("FILE%3A/var/tmp/kerberos/krb5cc_1fa70841-fce1-404d-b855-1c951daa0df2"),
-			       TSTR("15.6.28.121"),
-			       TSTR("snf"),
-			       TSTR("subdir1/subir2"),
-			       TSTR("filename.ext"));
+			       OFC_NULL);
       printf("File is %ls\n", orig_filename);
       free(orig_filename);
 
