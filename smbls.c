@@ -226,10 +226,10 @@ int main (int argc, char **argp)
 			       username,
 			       password,
 			       domain,
-			       uncInput,
 			       OFC_NULL,
 			       OFC_NULL,
-			       OFC_NULL);
+			       OFC_NULL,
+			       uncInput);
       rem = len + 1;
       orig_filename = malloc(rem * sizeof(OFC_TCHAR));
       filename = orig_filename;
@@ -238,10 +238,10 @@ int main (int argc, char **argp)
 			       username,
 			       password,
 			       domain,
-			       uncInput,
 			       OFC_NULL,
 			       OFC_NULL,
-			       OFC_NULL);
+			       OFC_NULL,
+			       uncInput);
       printf("File is %ls\n", orig_filename);
       free(orig_filename);
 
