@@ -221,6 +221,14 @@ void smbcp_configure(void)
   };
   ofc_framework_set_uuid(uuid);
   /*
+   * Set the default realm
+   * You will want to adjust this for your config.  You can skip this step
+   * if you are setting the default realm in krb5.conf or you are not
+   * using Kerberos authentication
+   */
+  ofc_framework_set_realm("DOUBLEDOUBLEU.COM");
+
+  /*
    * bootstrap_dcs can be explicity specified, but if
    * not set, DFS will query DNS.  So no need to configure
    */
