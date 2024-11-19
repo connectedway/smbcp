@@ -141,20 +141,31 @@ static OFC_DWORD ls(OFC_CTCHAR *dirname)
   OFC_TCHAR *filename;
   OFC_DWORD last_error;
   OFC_INT count;
+  OFC_LPCTSTR lpPathName;
 
   list_handle = OFC_INVALID_HANDLE_VALUE;
   last_error = OFC_ERROR_SUCCESS;
 
-  count = 0;
-  filename = MakeFilename(dirname, TSTR("*"));
-
-  list_handle = OfcFindFirstFile(filename, &find_data, &more);
-
-  if (list_handle == OFC_INVALID_HANDLE_VALUE)
+  if (OfcSetCurrentDirectory(dirname) == OFC_FALSE)
     {
       last_error = OfcGetLastError();
     }
-  free(filename);
+  else
+    {
+      count = 0;
+#if 0
+      filename = MakeFilename(dirname, TSTR("*"));
+#else
+      filename = wcsdup(TSTR("*"));
+#endif
+      list_handle = OfcFindFirstFile(filename, &find_data, &more);
+
+      if (list_handle == OFC_INVALID_HANDLE_VALUE)
+	{
+	  last_error = OfcGetLastError();
+	}
+      free(filename);
+    }
 
   if (list_handle != OFC_INVALID_HANDLE_VALUE)
     {
