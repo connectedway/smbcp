@@ -153,11 +153,7 @@ static OFC_DWORD ls(OFC_CTCHAR *dirname)
   else
     {
       count = 0;
-#if 0
-      filename = MakeFilename(dirname, TSTR("*"));
-#else
       filename = wcsdup(TSTR("*"));
-#endif
       list_handle = OfcFindFirstFile(filename, &find_data, &more);
 
       if (list_handle == OFC_INVALID_HANDLE_VALUE)
@@ -259,6 +255,8 @@ int main (int argc, char **argp)
       exit (1);
     }
 
+  OfcFileThreadInit();
+
   memset(&ps, 0, sizeof(ps));
   len = strlen(argp[1]) + 1;
   wfilename = malloc(sizeof(wchar_t) * len);
@@ -285,6 +283,7 @@ int main (int argc, char **argp)
       status = 1;
     }
 
+  OfcFileThreadDeinit();
   /*
    * Deactivate the openfiles stack
    */
