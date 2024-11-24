@@ -148,16 +148,16 @@ void smbcp_configure(void)
    * Hybrid (HMODE).  Mixed is broadcast first, if that
    * fails, then WINS.  Hybrid is WINS first, then broadcast.
    */
-  iface.netBiosMode = OFC_CONFIG_PMODE;
+  iface.netBiosMode = OFC_CONFIG_HMODE;
   /*
    * Configure the IP address.  The IP address is an
    * OFC_IPADDR which can initialized by a call to
    * ofc_pton.  NOTE: Be sure to retrieve and specify
    * the actual IP you wish to use.
    */
-  ofc_pton("192.168.1.60", &iface.ip);
-  ofc_pton("192.168.1.255", &iface.bcast);
-  ofc_pton("255.255.255.0", &iface.mask);
+  ofc_pton("0.0.0.0", &iface.ip);
+  ofc_pton("255.255.255.255", &iface.bcast);
+  ofc_pton("0.0.0.0", &iface.mask);
   /*
    * Local Master Browser is not supported in SMBv2.  Deprecated
    * but specify as NULL.
@@ -172,6 +172,7 @@ void smbcp_configure(void)
    * free it after the ofc_framework_add_interface call.
    */
   OFC_IPADDR winsaddr[2];
+  /* Change these to appropriate values for your configuration */
   ofc_pton("192.168.1.61", &winsaddr[0]);
   ofc_pton("192.168.1.62", &winsaddr[1]);
   iface.wins.num_wins = 2;

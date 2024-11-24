@@ -11,10 +11,13 @@
 #include <ofc/config.h>
 #include <ofc/handle.h>
 #include <ofc/types.h>
+#include <ofc/path.h>
+#include <ofc/fstype.h>
 #include <ofc/file.h>
 #include <ofc/waitset.h>
 #include <ofc/queue.h>
 #include <ofc/time.h>
+#include <ofc/framework.h>
 #include <of_smb/framework.h>
 
 #include "smbinit.h"
@@ -141,58 +144,93 @@ static OFC_DWORD ls(OFC_CTCHAR *dirname)
   OFC_TCHAR *filename;
   OFC_DWORD last_error;
   OFC_INT count;
-  OFC_LPCTSTR lpPathName;
 
   list_handle = OFC_INVALID_HANDLE_VALUE;
   last_error = OFC_ERROR_SUCCESS;
 
-  if (OfcSetCurrentDirectory(dirname) == OFC_FALSE)
+  if (OfcGetVolumeInformation(dirname,
+                              OFC_NULL, 0,
+                              OFC_NULL,
+                              OFC_NULL,
+                              OFC_NULL,
+                              OFC_NULL, 0) == OFC_FALSE)
     {
       last_error = OfcGetLastError();
     }
   else
     {
-      count = 0;
-      filename = wcsdup(TSTR("*"));
-      list_handle = OfcFindFirstFile(filename, &find_data, &more);
+      /* create a map */
+      OFC_CHAR *uuid;
+      OFC_TCHAR *tuuid;
+      OFC_PATH *path;
+      size_t len;
+      uuid = ofc_framework_get_uuid();
+      len = strlen(uuid) + 1;
+      tuuid = malloc(len * sizeof(wchar_t));
+      mbstowcs(tuuid, uuid, len);
+      path = ofc_path_create(dirname);
+      if (ofc_path_add_map(tuuid,
+                           OFC_NULL,
+                           path,
+                           OFC_FST_SMB,
+                           OFC_FALSE) == OFC_FALSE)
+        {
+          last_error = OfcGetLastError();
+        }
+      else
+        {
+          count = 0;
 
-      if (list_handle == OFC_INVALID_HANDLE_VALUE)
-	{
-	  last_error = OfcGetLastError();
-	}
-      free(filename);
-    }
+          /* 
+           * len is the number of wide characters in tuuid + 1
+           * we want to append :* to the tuuid to get a file path
+           */
+          filename = malloc((len + 2) * sizeof(wchar_t));
+          swprintf(filename, len+2, L"%ls:*", tuuid);
+          list_handle = OfcFindFirstFile(filename, &find_data, &more);
 
-  if (list_handle != OFC_INVALID_HANDLE_VALUE)
-    {
-      if (wcscmp(find_data.cFileName, L".") != 0 &&
-	  wcscmp(find_data.cFileName, L"..") != 0)
-	{
-	  count++;
-	  OfcFSPrintFindData(&find_data);
-	}
-
-      status = OFC_TRUE;
-      while (more && status == OFC_TRUE)
-	{
-	  status = OfcFindNextFile(list_handle,
-				   &find_data,
-				   &more);
-	  if (status == OFC_TRUE)
-	    {
-	      if (wcscmp(find_data.cFileName, L".") != 0 &&
-		  wcscmp(find_data.cFileName, L"..") != 0)
-		{
-		  count++;
-		  OfcFSPrintFindData(&find_data);
-		}
-            }
-          else
+          if (list_handle == OFC_INVALID_HANDLE_VALUE)
             {
               last_error = OfcGetLastError();
             }
+          free(filename);
         }
-      OfcFindClose(list_handle);
+
+      if (list_handle != OFC_INVALID_HANDLE_VALUE)
+        {
+          if (wcscmp(find_data.cFileName, L".") != 0 &&
+              wcscmp(find_data.cFileName, L"..") != 0)
+            {
+              count++;
+              OfcFSPrintFindData(&find_data);
+            }
+
+          status = OFC_TRUE;
+          while (more && status == OFC_TRUE)
+            {
+              status = OfcFindNextFile(list_handle,
+                                       &find_data,
+                                       &more);
+              if (status == OFC_TRUE)
+                {
+                  if (wcscmp(find_data.cFileName, L".") != 0 &&
+                      wcscmp(find_data.cFileName, L"..") != 0)
+                    {
+                      count++;
+                      OfcFSPrintFindData(&find_data);
+                    }
+                }
+              else
+                {
+                  last_error = OfcGetLastError();
+                }
+            }
+          OfcFindClose(list_handle);
+        }
+      ofc_path_delete_map(tuuid);
+      free(tuuid);
+      ofc_framework_free_uuid(uuid);
+      OfcDismount(dirname);
     }
   printf("Total Number of Files in Directory %d\n", count);
   return (last_error);
