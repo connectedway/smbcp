@@ -25,20 +25,21 @@
 /**
  * \{
  */
-static wchar_t *MakeFilename(const wchar_t *dirname, const wchar_t *name)
+static wchar_t *MakeFilename(const wchar_t *device, const wchar_t *name)
 {
-  size_t dirlen;
   size_t namelen;
   wchar_t *filename;
-
-  dirlen = wcslen (dirname);
-  namelen = wcslen (name);
-  filename =
-    malloc((dirlen + namelen + 2) * sizeof(wchar_t));
-  wcscpy (filename, dirname);
-  filename[dirlen] = L'/';
-  wcscpy (&filename[dirlen+1], name);
-  filename[dirlen + 1 + namelen] = L'\0';
+  /*
+   * filename string length is going to be the length of the device
+   * plus a colon plus the name of the file plus nil.  
+   * This is number of wide characters.
+   */
+  namelen = (wcslen(device) + 1 + wcslen(name) + 1);
+  filename = malloc(namelen * sizeof(wchar_t));
+  /*
+   * Now build the filename
+   */
+  swprintf(filename, namelen, L"%ls:%ls", device, name);
   return (filename);
 }
 
@@ -135,15 +136,63 @@ static OFC_VOID OfcFSPrintFindData(OFC_WIN32_FIND_DATA *find_data)
   printf("\n");
 }
 
+wchar_t *CreateMap(const wchar_t *dirname)
+{
+  char *uuid;
+  OFC_PATH *path;
+  size_t len;
+  wchar_t *device;
+  /*
+   * Get our UUID and length
+   */
+  uuid = ofc_framework_get_uuid();
+  len = strlen(uuid) + 1;
+  /*
+   * Allocate a wide character version as our device
+   */
+  device = malloc(len * sizeof(wchar_t));
+  mbstowcs(device, uuid, len);
+  /*
+   * Free the uuid returned by the stack
+   */
+  ofc_framework_free_uuid(uuid);
+  /*
+   * Make a path out of the dirname passed in
+   */
+  path = ofc_path_create(dirname);
+  /*
+   * Add a map to the path from the wide character uuid
+   * NOTE: The path we just created will be released when we 
+   * delete the map
+   */
+  if (ofc_path_add_map(device, OFC_NULL, path, OFC_FST_SMB, OFC_FALSE) ==
+      OFC_FALSE)
+    {
+      /*
+       * Since we failed to add the map, free the device
+       */
+      free(device);
+      device = NULL;
+    }
+  return (device);
+}
+
+static void DeleteMap(wchar_t *device)
+{
+  ofc_path_delete_map(device);  
+  free(device);
+}
+
 static OFC_DWORD ls(OFC_CTCHAR *dirname)
 {
   OFC_HANDLE list_handle;
   OFC_WIN32_FIND_DATA find_data;
   OFC_BOOL more = OFC_FALSE;
   OFC_BOOL status;
-  OFC_TCHAR *filename;
   OFC_DWORD last_error;
   OFC_INT count;
+  wchar_t *device;
+  wchar_t *filename;
 
   list_handle = OFC_INVALID_HANDLE_VALUE;
   last_error = OFC_ERROR_SUCCESS;
@@ -160,40 +209,31 @@ static OFC_DWORD ls(OFC_CTCHAR *dirname)
   else
     {
       /* create a map */
-      OFC_CHAR *uuid;
-      OFC_TCHAR *tuuid;
-      OFC_PATH *path;
-      size_t len;
-      uuid = ofc_framework_get_uuid();
-      len = strlen(uuid) + 1;
-      tuuid = malloc(len * sizeof(wchar_t));
-      mbstowcs(tuuid, uuid, len);
-      path = ofc_path_create(dirname);
-      if (ofc_path_add_map(tuuid,
-                           OFC_NULL,
-                           path,
-                           OFC_FST_SMB,
-                           OFC_FALSE) == OFC_FALSE)
+      device = CreateMap(dirname);
+      if (device == NULL)
         {
           last_error = OfcGetLastError();
         }
       else
         {
           count = 0;
-
           /* 
            * len is the number of wide characters in tuuid + 1
            * we want to append :* to the tuuid to get a file path
            */
-          filename = malloc((len + 2) * sizeof(wchar_t));
-          swprintf(filename, len+2, L"%ls:*", tuuid);
+          filename = MakeFilename(device, L"*");
           list_handle = OfcFindFirstFile(filename, &find_data, &more);
 
           if (list_handle == OFC_INVALID_HANDLE_VALUE)
             {
               last_error = OfcGetLastError();
             }
+          /*
+           * Free the filename and the device.  We no longer need them.
+           * We have a handle instead.
+           */
           free(filename);
+          DeleteMap(device);
         }
 
       if (list_handle != OFC_INVALID_HANDLE_VALUE)
@@ -227,9 +267,6 @@ static OFC_DWORD ls(OFC_CTCHAR *dirname)
             }
           OfcFindClose(list_handle);
         }
-      ofc_path_delete_map(tuuid);
-      free(tuuid);
-      ofc_framework_free_uuid(uuid);
       OfcDismount(dirname);
     }
   printf("Total Number of Files in Directory %d\n", count);
