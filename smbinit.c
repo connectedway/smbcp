@@ -7,6 +7,7 @@
 #include <string.h>
 #include <wchar.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <ofc/config.h>
 #include <ofc/framework.h>
@@ -103,7 +104,7 @@ void smbcp_init(void)
 }
 
 #if !defined(INIT_ON_LOAD)
-void disable_dialects(void)
+void disable_smb_dialects(void)
 {
   of_smb_disable_dialect(0x0202);
   of_smb_disable_dialect(0x0210);
@@ -111,6 +112,36 @@ void disable_dialects(void)
   of_smb_disable_dialect(0x0302);
   of_smb_disable_dialect(0x0311);
 }  
+
+void generate_uuid(char *uuid)
+{
+  const char *chars = "0123456789abcdef";
+
+  int i;
+
+  srand((unsigned int)time(NULL));
+
+  for (i = 0; i < 36; i++)
+    {
+      if (i == 8 || i == 13 || i == 18 || i == 23)
+        {
+          uuid[i] = '-';
+        }
+      else if (i == 14)
+        {
+          uuid[i] = '4';
+        }
+      else if (i == 19)
+        {
+          uuid[i] = chars[(rand() % 4) + 8];
+        }
+      else
+        {
+          uuid[i] = chars[rand() % 16];
+        }
+    }
+  uuid[36] = '\0';
+}
 
 void smbcp_configure(void)
 {
@@ -225,16 +256,15 @@ void smbcp_configure(void)
    */
   disable_smb_dialects();
   /* 
-   * Now enable just 3.02.
+   * Now enable just 3.1.1.
    */
-  of_smb_enable_dialect(0x0302);
+  of_smb_enable_dialect(0x0311);
   /*
-   * Set the UUID.  This is required in an SMB negotiate request
-   * but it doesn't appear to be checked by servers.  Ideally
-   * though this should be a unique number.  We are passing in a 
-   * string.  Make sure it is null terminated.
+   * Set the UUID.  This needs to be unique per client.
    */
-  static const OFC_CHAR *uuid = "045d888a-eb1c-c911-9fe8-08002b104860"
+  static OFC_CHAR uuid[37];
+  generate_uuid(uuid);
+
   ofc_framework_set_uuid(uuid);
   /*
    * Set the default realm
