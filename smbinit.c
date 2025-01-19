@@ -103,6 +103,15 @@ void smbcp_init(void)
 }
 
 #if !defined(INIT_ON_LOAD)
+void disable_dialects(void)
+{
+  of_smb_disable_dialect(0x0202);
+  of_smb_disable_dialect(0x0210);
+  of_smb_disable_dialect(0x0300);
+  of_smb_disable_dialect(0x0302);
+  of_smb_disable_dialect(0x0311);
+}  
+
 void smbcp_configure(void)
 {
 #if defined(OFC_PERSIST)
@@ -209,17 +218,23 @@ void smbcp_configure(void)
    */
   ofc_framework_set_netbios(OFC_TRUE);
   /*
+   * Before calling this routine, we had made a call to of_smb_init.
+   * That will have enabled all smb dialects.  If you wish to enable
+   * a single smb dialect, we can disable all, then enable just
+   * the one we wish.
+   */
+  disable_smb_dialects();
+  /* 
+   * Now enable just 3.02.
+   */
+  of_smb_enable_dialect(0x0302);
+  /*
    * Set the UUID.  This is required in an SMB negotiate request
    * but it doesn't appear to be checked by servers.  Ideally
    * though this should be a unique number.  We are passing in a 
    * string.  Make sure it is null terminated.
    */
-  static const OFC_CHAR uuid[] = 
-  {
-    0x04, 0x5d, 0x88, 0x8a, 0xeb, 0x1c, 0xc9, 0x11,
-    0x9f, 0xe8, 0x08, 0x00, 0x2b, 0x10, 0x48, 0x60,
-    0x00
-  };
+  static const OFC_CHAR *uuid = "045d888a-eb1c-c911-9fe8-08002b104860"
   ofc_framework_set_uuid(uuid);
   /*
    * Set the default realm
