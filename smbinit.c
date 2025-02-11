@@ -21,7 +21,7 @@
 /*
  * Set this if you wish to exercise the ofc_framework_set_log_file  API
  */
-#undef SET_LOG_FILE
+#define SET_LOG_FILE
 
 #if !defined(INIT_ON_LOAD)
 /*
