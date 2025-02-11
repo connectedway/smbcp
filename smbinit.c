@@ -18,6 +18,11 @@
 #include <ofc/queue.h>
 #include <of_smb/framework.h>
 
+/*
+ * Set this if you wish to exercise the ofc_framework_set_log_file  API
+ */
+#undef SET_LOG_FILE
+
 #if !defined(INIT_ON_LOAD)
 /*
  * Forward Declaration of explicit configuration routine
@@ -156,6 +161,12 @@ void smbcp_configure(void)
    */
   ofc_framework_load(OFC_NULL);
 #else
+#if defined(SET_LOG_FILE)
+  /*
+   * Set the log file if you don't want to use syslog
+   */
+  ofc_framework_set_log_file("/tmp/openfiles.%d.log", 10000, 3);
+#endif
   /*
    * We will explicity configure the stack.
    *
