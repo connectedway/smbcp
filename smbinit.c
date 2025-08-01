@@ -165,7 +165,7 @@ void smbcp_configure(void)
   /*
    * Set the log file if you don't want to use syslog
    */
-  ofc_framework_set_log_file("/tmp/openfiles.%d.log", 10000, 3);
+  ofc_framework_set_log_file("/tmp/openfiles.%d.log", 100000, 3);
 #endif
   /*
    * We will explicity configure the stack.
@@ -259,6 +259,7 @@ void smbcp_configure(void)
    * Enable Netbios
    */
   ofc_framework_set_netbios(OFC_TRUE);
+#if 0
   /*
    * Before calling this routine, we had made a call to of_smb_init.
    * That will have enabled all smb dialects.  If you wish to enable
@@ -270,6 +271,7 @@ void smbcp_configure(void)
    * Now enable just 3.1.1.
    */
   of_smb_enable_dialect(0x0311);
+#endif
   /*
    * Set the UUID.  This needs to be unique per client.
    */
@@ -301,6 +303,13 @@ void smbcp_configure(void)
    * by default we specify SMB 3.11.  There should never be
    * a reason to change this.
    */
+
+#if defined(OFC_KERBEROS) && defined(__linux__)
+  /*
+   * Enable Reverse DNS
+   */
+  ofc_framework_set_reverse_dns(OFC_TRUE);
+#endif
 #endif
 }
 
