@@ -797,16 +797,23 @@ static OFC_DWORD copy_sync(OFC_CTCHAR *rfilename, OFC_CTCHAR *wfilename)
 	}
       else
 	{
-	  while ((ret = OfcReadFile(read_file, buffer, BUFFER_SIZE,
-				    &dwLen, OFC_HANDLE_NULL)) == OFC_TRUE)
-	    {
+          ret = OfcReadFile(read_file, buffer, BUFFER_SIZE,
+                            &dwLen, OFC_HANDLE_NULL);
+
+	  while (ret == OFC_TRUE)
+            {
 	      ret = OfcWriteFile(write_file, buffer, dwLen,
 				 &dwLen, OFC_HANDLE_NULL);
-	    }
+              if (ret == OFC_TRUE)
+                {
+                  ret = OfcReadFile(read_file, buffer, BUFFER_SIZE,
+				    &dwLen, OFC_HANDLE_NULL);
+                }
+            }
 	  if (ret == OFC_FALSE)
 	    {
 	      if (OfcGetLastError() != OFC_ERROR_HANDLE_EOF)
-		dwLastError = OfcGetLastError();
+                dwLastError = OfcGetLastError();
 	    }
 	    
 	  OfcCloseHandle(write_file);
