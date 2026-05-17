@@ -755,6 +755,148 @@ def test_idle_timeout_with_server_restart(verify_test_environment, logfile):
         cleanup_command = f"smbrm {TEST_SERVER_URL}/{idle_file}"
         run_command_with_timeout(cleanup_command, timeout=10)
 
+
+@pytest.mark.parametrize("idle_duration", [60, 120])
+def test_find_transaction_idle_timeout(verify_test_environment, logfile, idle_duration):
+    """Test Find transaction behavior during idle timeout scenarios"""
+
+    test_name = f"find_idle_timeout_{idle_duration}s"
+    with resource_monitor(test_name, logfile) as start_resources:
+
+        with open(logfile, "a") as fd:
+            fd.write(f"\n=== TEST: Find Transaction Idle Timeout ({idle_duration} seconds) ===\n")
+            fd.write(f"Testing Find operations with {idle_duration}-second idle period\n")
+
+        # Use smbfind to test Find transaction behavior during idle timeout
+        # Use local executable since smbfind is not installed system-wide yet
+        smbfind_path = "../smbfind"
+        command = f"PATH=/usr/local/bin/openfiles:$PATH LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH {smbfind_path} {TEST_SERVER_URL}/ 8 {idle_duration}"
+
+        with open(logfile, "a") as fd:
+            fd.write(f"Starting Find transaction idle test: {command}\n")
+            fd.flush()
+
+        result = run_command_with_timeout(command, timeout=idle_duration + 30)
+
+        with open(logfile, "a") as fd:
+            fd.write(f"Find idle test completed with return code: {result['returncode']}\n")
+            if result['timed_out']:
+                fd.write("WARNING: Find idle test timed out\n")
+
+        # Validate that process didn't crash
+        assert result['returncode'] != -11, f"Find idle test crashed with SIGSEGV"
+        assert result['returncode'] == 0, f"Find idle test failed with return code {result['returncode']}"
+
+        # Validate memory analysis
+        memory_analysis = validate_memory_cleanliness(
+            result['stdout'],
+            test_name,
+            logfile
+        )
+        # Enhanced logging to capture complete smbfind output
+        with open(logfile, "a") as fd:
+            fd.write(f"=== COMPLETE SMBFIND OUTPUT ===\n")
+            fd.write(f"Command: {command}\n")
+            fd.write(f"Return code: {result['returncode']}\n")
+            fd.write(f"Timed out: {result['timed_out']}\n")
+            fd.write(f"STDOUT LENGTH: {len(result['stdout'])} characters\n")
+            fd.write(f"STDERR LENGTH: {len(result['stderr'])} characters\n")
+            fd.write("--- COMPLETE STDOUT ---\n")
+            fd.write(result['stdout'])
+            fd.write("\n--- END STDOUT ---\n")
+            fd.write("=" * 60 + "\n")
+
+        # Validate memory analysis
+        with open(logfile, "a") as fd:
+            if memory_analysis['heap_clean']:
+                fd.write("✓ PASS: Find transaction memory validation passed\n")
+                fd.write(f"MEMORY: Total allocated: {memory_analysis['total_allocated']}, ")
+                fd.write(f"Max allocated: {memory_analysis['max_allocated']}, ")
+                fd.write(f"Heap clean: {memory_analysis['heap_clean']}\n")
+            else:
+                fd.write("✗ FAIL: Find transaction memory leak detected\n")
+
+
+def test_find_transaction_server_disconnect(verify_test_environment, logfile):
+    """Test Find transaction behavior during server disconnect"""
+
+    with resource_monitor("find_server_disconnect", logfile) as start_resources:
+
+        with open(logfile, "a") as fd:
+            fd.write("\n=== TEST: Find Transaction Server Disconnect ===\n")
+            fd.write("Testing Find operations with server restart during enumeration\n")
+
+        # Start Find operation that will enumerate files slowly
+        # Use local executable since smbfind is not installed system-wide yet
+        smbfind_path = "../smbfind"
+        command = f"PATH=/usr/local/bin/openfiles:$PATH LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH {smbfind_path} {TEST_SERVER_URL}/ 15 45"
+
+        with open(logfile, "a") as fd:
+            fd.write(f"Starting Find operation: {command}\n")
+            fd.flush()
+
+        # Start the Find process
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        # Let it enumerate some files first
+        time.sleep(8)
+
+        # Restart samba during Find operation
+        with open(logfile, "a") as fd:
+            fd.write("Restarting samba during Find operation...\n")
+            fd.flush()
+
+        restart_samba_service()
+
+        # Wait for process to complete
+        try:
+            stdout, stderr = process.communicate(timeout=60)
+            returncode = process.returncode
+        except subprocess.TimeoutExpired:
+            process.kill()
+            stdout, stderr = process.communicate()
+            returncode = -1
+            stderr += "\nFind process killed due to timeout"
+
+        with open(logfile, "a") as fd:
+            fd.write(f"Find operation completed with return code: {returncode}\n")
+            if stdout:
+                fd.write(f"STDOUT: {stdout}\n")
+            if stderr:
+                fd.write(f"STDERR: {stderr}\n")
+
+        # The key test: should not crash (SIGSEGV = -11)
+        assert returncode != -11, f"Find operation crashed with SIGSEGV during server disconnect"
+
+        # Should complete with expected error code (session invalidated)
+        assert returncode == 0, f"Find operation should handle disconnect gracefully, got: {returncode}"
+
+        # Validate memory analysis if we have stdout
+        if stdout:
+            memory_analysis = validate_memory_cleanliness(
+                stdout,
+                "find_server_disconnect",
+                logfile
+            )
+            with open(logfile, "a") as fd:
+                if memory_analysis['heap_clean']:
+                    fd.write("✓ PASS: Find transaction disconnect memory validation passed\n")
+                    fd.write(f"MEMORY: Total allocated: {memory_analysis['total_allocated']}, ")
+                    fd.write(f"Max allocated: {memory_analysis['max_allocated']}, ")
+                    fd.write(f"Heap clean: {memory_analysis['heap_clean']}\n")
+                else:
+                    fd.write("✗ FAIL: Find transaction disconnect memory leak detected\n")
+
+        with open(logfile, "a") as fd:
+            fd.write("SUCCESS: Find transaction server disconnect test completed\n")
+
+
 if __name__ == "__main__":
     # Can be run standalone for debugging
     print("Server Disconnect Tests")
