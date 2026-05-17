@@ -6,6 +6,9 @@ smbcp
 smbfree
 smbls
 smbrm
+smbidle
+test/*.log
+test/test_logs/
 of_regression.log
 test/__pycache__
 

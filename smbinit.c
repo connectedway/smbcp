@@ -234,11 +234,11 @@ void smbcp_configure(void)
   ofc_framework_add_interface(&iface) ;
 #endif
   /*
-   * Set up logging.  We want to log INFO messages and
+   * Set up logging.  We want to log DEBUG messages and
    * higher. Don't log to the console.  On Linux,
    * This will log to syslog
    */
-  ofc_framework_set_logging(OFC_LOG_INFO, OFC_FALSE);
+  ofc_framework_set_logging(OFC_LOG_DEBUG, OFC_FALSE);
   /*
    * Set the host name
    * This is not required for a client.  It is never used.
