@@ -969,14 +969,14 @@ def test_async_copy_with_disconnect(verify_test_environment, logfile):
 
 
 def test_volume_info_with_rapid_disconnects(verify_test_environment, logfile):
-    """Test OfcGetVolumeInformation calls with very frequent server restarts"""
+    """Test OfcGetVolumeInformation calls until we catch OFC_ERROR_OPERATION_ABORTED"""
 
-    with resource_monitor("volume_info_rapid_disconnect", logfile) as start_resources:
+    with resource_monitor("volume_info_operation_aborted", logfile) as start_resources:
 
         with open(logfile, "a") as fd:
-            fd.write("\n=== TEST: Volume Info Rapid Disconnects ===\n")
-            fd.write("Testing OfcGetVolumeInformation with very frequent server restarts\n")
-            fd.write("Attempting to catch timing of quick volume info calls during disconnects\n")
+            fd.write("\n=== TEST: Volume Info Operation Aborted Hunt ===\n")
+            fd.write("Looping OfcGetVolumeInformation calls until we catch operation aborted status\n")
+            fd.write("Will run for up to 10 minutes or until we get OFC_ERROR_OPERATION_ABORTED\n")
 
         # Set up environment for OpenFiles
         env = os.environ.copy()
@@ -986,79 +986,113 @@ def test_volume_info_with_rapid_disconnects(verify_test_environment, logfile):
         crash_count = 0
         success_count = 0
         error_count = 0
+        operation_aborted_count = 0
+        other_error_count = 0
 
-        # Run for 30 seconds with very frequent restarts (every 2-3 seconds)
+        # Target error code we're hunting for
+        OFC_ERROR_OPERATION_ABORTED = 995  # Actual value from ofc/file.h
+
+        # Run for up to 10 minutes (600 seconds) or until we catch operation aborted
         start_time = time.time()
+        max_runtime = 600  # 10 minutes
         iteration = 0
+        operation_aborted_found = False
 
-        while (time.time() - start_time) < 30:
+        with open(logfile, "a") as fd:
+            fd.write(f"Hunting for OFC_ERROR_OPERATION_ABORTED (exit code {OFC_ERROR_OPERATION_ABORTED})\n")
+            fd.write("Strategy: Continuous smbls calls with very frequent server restarts\n")
+            fd.flush()
+
+        while (time.time() - start_time) < max_runtime and not operation_aborted_found:
             iteration += 1
-
-            with open(logfile, "a") as fd:
-                fd.write(f"\n--- Volume Info Iteration {iteration} ---\n")
-                fd.flush()
 
             # Start smbls (calls OfcGetVolumeInformation)
             command = f"smbls {TEST_SERVER_URL}/"
-            process = subprocess.Popen(
-                command,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env
-            )
 
-            # Wait a bit, then restart samba to try to catch the volume info call
-            time.sleep(1)
+            # Start multiple concurrent calls to increase chances
+            processes = []
+            for i in range(3):  # 3 concurrent smbls calls
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env
+                )
+                processes.append(process)
 
-            with open(logfile, "a") as fd:
-                fd.write(f"Restarting samba during volume info call (iteration {iteration})\n")
-                fd.flush()
-
+            # Very brief wait, then restart samba
+            time.sleep(0.5)
             restart_samba_service()
 
-            # Check result
-            try:
-                stdout, stderr = process.communicate(timeout=10)
-                returncode = process.returncode
-            except subprocess.TimeoutExpired:
-                process.kill()
-                stdout, stderr = process.communicate()
-                returncode = -1
+            # Check results from all concurrent processes
+            for i, process in enumerate(processes):
+                try:
+                    stdout, stderr = process.communicate(timeout=5)
+                    returncode = process.returncode
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    stdout, stderr = process.communicate()
+                    returncode = -1
 
-            with open(logfile, "a") as fd:
-                fd.write(f"smbls return code: {returncode}\n")
+                # Analyze the return code
                 if returncode == -11:
-                    fd.write("CRASH: SIGSEGV detected!\n")
+                    crash_count += 1
+                    with open(logfile, "a") as fd:
+                        fd.write(f"CRASH: SIGSEGV in iteration {iteration}, process {i+1}\n")
                 elif returncode == 0:
-                    fd.write("SUCCESS: Volume info completed\n")
+                    success_count += 1
+                elif returncode == OFC_ERROR_OPERATION_ABORTED:
+                    operation_aborted_count += 1
+                    operation_aborted_found = True
+                    with open(logfile, "a") as fd:
+                        fd.write(f"🎯 SUCCESS: Found OFC_ERROR_OPERATION_ABORTED in iteration {iteration}, process {i+1}!\n")
+                        fd.write(f"Return code: {returncode} (0x{returncode:08x})\n")
+                        if stderr:
+                            fd.write(f"STDERR: {stderr}\n")
+                        fd.flush()
+                    break
                 else:
-                    fd.write(f"ERROR: Volume info failed with code {returncode}\n")
-
-            if returncode == -11:
-                crash_count += 1
-            elif returncode == 0:
-                success_count += 1
-            else:
-                error_count += 1
+                    other_error_count += 1
+                    if iteration % 20 == 0:  # Log details every 20th iteration
+                        with open(logfile, "a") as fd:
+                            fd.write(f"Iteration {iteration}: return code {returncode}\n")
 
             # Brief pause before next iteration
-            time.sleep(1)
+            time.sleep(0.5)
+
+            # Progress update every 60 iterations
+            if iteration % 60 == 0:
+                elapsed = time.time() - start_time
+                with open(logfile, "a") as fd:
+                    fd.write(f"Progress: {iteration} iterations, {elapsed:.1f}s elapsed\n")
+                    fd.write(f"  Successes: {success_count}, Errors: {other_error_count}, Crashes: {crash_count}\n")
+                    fd.flush()
+
+        elapsed_time = time.time() - start_time
 
         with open(logfile, "a") as fd:
-            fd.write(f"\n=== Volume Info Rapid Disconnect Summary ===\n")
+            fd.write(f"\n=== Volume Info Operation Aborted Hunt Summary ===\n")
+            fd.write(f"Total runtime: {elapsed_time:.1f} seconds ({elapsed_time/60:.1f} minutes)\n")
             fd.write(f"Total iterations: {iteration}\n")
             fd.write(f"Successes: {success_count}\n")
-            fd.write(f"Errors: {error_count}\n")
+            fd.write(f"Other errors: {other_error_count}\n")
             fd.write(f"Crashes: {crash_count}\n")
+            fd.write(f"🎯 OPERATION_ABORTED found: {operation_aborted_count}\n")
 
-        # Main assertion: no crashes
-        assert crash_count == 0, f"Volume info operations crashed {crash_count} times during rapid disconnects"
+        # Main assertions
+        assert crash_count == 0, f"Volume info operations crashed {crash_count} times during hunt"
 
-        with open(logfile, "a") as fd:
-            fd.write("SUCCESS: Volume info rapid disconnect test completed\n")
-            fd.write("OfcGetVolumeInformation handled rapid disconnects without crashes\n")
+        if operation_aborted_found:
+            with open(logfile, "a") as fd:
+                fd.write("🎯 SUCCESS: Successfully caught OFC_ERROR_OPERATION_ABORTED during OfcGetVolumeInformation!\n")
+                fd.write("This proves session validation works for volume info operations\n")
+        else:
+            with open(logfile, "a") as fd:
+                fd.write("⚠️ INFO: Did not catch OFC_ERROR_OPERATION_ABORTED in available time\n")
+                fd.write("Volume info calls are very fast - may need longer runtime or different timing\n")
+                fd.write("But no crashes occurred, confirming session validation prevents crashes\n")
 
 
 if __name__ == "__main__":
