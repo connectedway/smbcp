@@ -8,6 +8,7 @@ smbls
 smbrm
 smbidle
 smbfind
+smbvolinfo
 test/*.log
 test/test_logs/
 of_regression.log
