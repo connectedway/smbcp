@@ -1000,18 +1000,63 @@ def test_volume_info_with_rapid_disconnects(verify_test_environment, logfile):
 
         with open(logfile, "a") as fd:
             fd.write(f"Hunting for OFC_ERROR_OPERATION_ABORTED (exit code {OFC_ERROR_OPERATION_ABORTED})\n")
-            fd.write("Strategy: Continuous smbls calls with very frequent server restarts\n")
+            fd.write("Strategy: Establish working calls first, then frequent restarts during calls\n")
             fd.flush()
+
+        # Phase 1: Establish working volume info calls (30 seconds)
+        phase1_end_time = start_time + 30
+        with open(logfile, "a") as fd:
+            fd.write("\n=== PHASE 1: Establishing working volume info calls ===\n")
+            fd.flush()
+
+        while time.time() < phase1_end_time and not operation_aborted_found:
+            iteration += 1
+            command = f"smbls {TEST_SERVER_URL}/"
+
+            result = run_command_with_timeout(command, timeout=10, capture_output=True)
+
+            if result['returncode'] == 0:
+                success_count += 1
+                if iteration % 5 == 0:
+                    with open(logfile, "a") as fd:
+                        fd.write(f"Phase 1: {iteration} successful volume info calls\n")
+                        fd.flush()
+            else:
+                other_error_count += 1
+                with open(logfile, "a") as fd:
+                    fd.write(f"Phase 1 unexpected error: {result['returncode']}\n")
+
+            time.sleep(1)  # 1 second between calls during stable phase
+
+        # Phase 2: Aggressive restart pattern during calls (remaining time)
+        with open(logfile, "a") as fd:
+            fd.write(f"\n=== PHASE 2: Aggressive restart pattern (every 5 seconds) ===\n")
+            fd.write(f"Starting server restart pattern after {iteration} successful calls\n")
+            fd.flush()
+
+        restart_iteration = 0
+        last_restart_time = time.time()
 
         while (time.time() - start_time) < max_runtime and not operation_aborted_found:
             iteration += 1
+            current_time = time.time()
 
-            # Start smbls (calls OfcGetVolumeInformation)
+            # Restart samba every 5 seconds during this phase
+            if (current_time - last_restart_time) >= 5:
+                restart_iteration += 1
+                with open(logfile, "a") as fd:
+                    fd.write(f"RESTART {restart_iteration}: Restarting samba at iteration {iteration}\n")
+                    fd.flush()
+
+                restart_samba_service()
+                last_restart_time = current_time
+
+            # Continue volume info calls during restart pattern
             command = f"smbls {TEST_SERVER_URL}/"
 
-            # Start multiple concurrent calls to increase chances
+            # Start multiple concurrent calls to increase chances of catching disconnect timing
             processes = []
-            for i in range(3):  # 3 concurrent smbls calls
+            for i in range(3):
                 process = subprocess.Popen(
                     command,
                     shell=True,
@@ -1022,14 +1067,10 @@ def test_volume_info_with_rapid_disconnects(verify_test_environment, logfile):
                 )
                 processes.append(process)
 
-            # Very brief wait, then restart samba
-            time.sleep(0.5)
-            restart_samba_service()
-
             # Check results from all concurrent processes
             for i, process in enumerate(processes):
                 try:
-                    stdout, stderr = process.communicate(timeout=5)
+                    stdout, stderr = process.communicate(timeout=3)
                     returncode = process.returncode
                 except subprocess.TimeoutExpired:
                     process.kill()
@@ -1041,6 +1082,7 @@ def test_volume_info_with_rapid_disconnects(verify_test_environment, logfile):
                     crash_count += 1
                     with open(logfile, "a") as fd:
                         fd.write(f"CRASH: SIGSEGV in iteration {iteration}, process {i+1}\n")
+                        fd.flush()
                 elif returncode == 0:
                     success_count += 1
                 elif returncode == OFC_ERROR_OPERATION_ABORTED:
@@ -1048,26 +1090,29 @@ def test_volume_info_with_rapid_disconnects(verify_test_environment, logfile):
                     operation_aborted_found = True
                     with open(logfile, "a") as fd:
                         fd.write(f"🎯 SUCCESS: Found OFC_ERROR_OPERATION_ABORTED in iteration {iteration}, process {i+1}!\n")
-                        fd.write(f"Return code: {returncode} (0x{returncode:08x})\n")
+                        fd.write(f"Return code: {returncode} (0x{returncode:03x})\n")
+                        fd.write(f"This occurred during restart iteration {restart_iteration}\n")
                         if stderr:
                             fd.write(f"STDERR: {stderr}\n")
                         fd.flush()
                     break
                 else:
                     other_error_count += 1
-                    if iteration % 20 == 0:  # Log details every 20th iteration
+                    # Log interesting error codes
+                    if returncode not in [124, -1]:  # Skip timeouts and generic failures
                         with open(logfile, "a") as fd:
                             fd.write(f"Iteration {iteration}: return code {returncode}\n")
 
             # Brief pause before next iteration
-            time.sleep(0.5)
+            time.sleep(1)
 
-            # Progress update every 60 iterations
-            if iteration % 60 == 0:
+            # Progress update every 30 iterations during phase 2
+            if iteration % 30 == 0:
                 elapsed = time.time() - start_time
+                phase2_elapsed = time.time() - phase1_end_time
                 with open(logfile, "a") as fd:
-                    fd.write(f"Progress: {iteration} iterations, {elapsed:.1f}s elapsed\n")
-                    fd.write(f"  Successes: {success_count}, Errors: {other_error_count}, Crashes: {crash_count}\n")
+                    fd.write(f"Phase 2 progress: {iteration} total iterations, {phase2_elapsed:.1f}s in phase 2\n")
+                    fd.write(f"  Restarts: {restart_iteration}, Successes: {success_count}, Errors: {other_error_count}\n")
                     fd.flush()
 
         elapsed_time = time.time() - start_time
