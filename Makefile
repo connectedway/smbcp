@@ -5,7 +5,7 @@ ROOT ?= /root
 
 all: smbcp smbrm smbfree smbls smbsize smbidle smbfind smbvolinfo
 
-smbvolinfo: smbvolinfo.o smbvolinfo.o
+smbvolinfo: smbvolinfo.o smbinit.o
 	$(CC) $(LDFLAGS) -o $@ $^ -Wl,--no-as-needed -lof_smb_shared -lof_core_shared -lssl -lkrb5 -lgssapi_krb5 
 
 smbsize: smbsize.o smbinit.o
