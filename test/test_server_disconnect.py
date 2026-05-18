@@ -897,6 +897,170 @@ def test_find_transaction_server_disconnect(verify_test_environment, logfile):
             fd.write("SUCCESS: Find transaction server disconnect test completed\n")
 
 
+def test_async_copy_with_disconnect(verify_test_environment, logfile):
+    """Test async copy operations (overlapped I/O) during server disconnect"""
+
+    with resource_monitor("async_copy_disconnect", logfile) as start_resources:
+
+        with open(logfile, "a") as fd:
+            fd.write("\n=== TEST: Async Copy Server Disconnect ===\n")
+            fd.write("Testing overlapped I/O copy operations with server restart\n")
+
+        # Start async copy operation (smbcp -a uses overlapped I/O with multiple buffers)
+        remote_file = "async_copy_test.img"
+        command = f"smbcp -a {TEST_FILE_LOCAL} {TEST_SERVER_URL}/{remote_file}"
+
+        with open(logfile, "a") as fd:
+            fd.write(f"Starting async copy: {command}\n")
+            fd.flush()
+
+        # Set up environment for OpenFiles
+        env = os.environ.copy()
+        env['PATH'] = env.get('PATH', '') + ':/usr/local/bin/openfiles'
+        env['LD_LIBRARY_PATH'] = env.get('LD_LIBRARY_PATH', '') + ':/usr/local/lib64'
+
+        # Start the async copy process
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env
+        )
+
+        # Let async copy start (overlapped I/O needs time to establish buffers)
+        time.sleep(5)
+
+        # Restart samba during async copy
+        with open(logfile, "a") as fd:
+            fd.write("Restarting samba during async copy with overlapped I/O...\n")
+            fd.flush()
+
+        restart_samba_service()
+
+        # Wait for process to complete
+        try:
+            stdout, stderr = process.communicate(timeout=60)
+            returncode = process.returncode
+        except subprocess.TimeoutExpired:
+            process.kill()
+            stdout, stderr = process.communicate()
+            returncode = -1
+            stderr += "\nAsync copy process killed due to timeout"
+
+        with open(logfile, "a") as fd:
+            fd.write(f"Async copy completed with return code: {returncode}\n")
+            if stdout:
+                fd.write(f"STDOUT: {stdout}\n")
+            if stderr:
+                fd.write(f"STDERR: {stderr}\n")
+
+        # The key test: should not crash (SIGSEGV = -11)
+        assert returncode != -11, f"Async copy crashed with SIGSEGV during server disconnect"
+
+        # Cleanup
+        cleanup_command = f"smbrm {TEST_SERVER_URL}/{remote_file}"
+        run_command_with_timeout(cleanup_command, timeout=10)
+
+        with open(logfile, "a") as fd:
+            fd.write("SUCCESS: Async copy server disconnect test completed\n")
+            fd.write("Overlapped I/O operations handled disconnect properly\n")
+
+
+def test_volume_info_with_rapid_disconnects(verify_test_environment, logfile):
+    """Test OfcGetVolumeInformation calls with very frequent server restarts"""
+
+    with resource_monitor("volume_info_rapid_disconnect", logfile) as start_resources:
+
+        with open(logfile, "a") as fd:
+            fd.write("\n=== TEST: Volume Info Rapid Disconnects ===\n")
+            fd.write("Testing OfcGetVolumeInformation with very frequent server restarts\n")
+            fd.write("Attempting to catch timing of quick volume info calls during disconnects\n")
+
+        # Set up environment for OpenFiles
+        env = os.environ.copy()
+        env['PATH'] = env.get('PATH', '') + ':/usr/local/bin/openfiles'
+        env['LD_LIBRARY_PATH'] = env.get('LD_LIBRARY_PATH', '') + ':/usr/local/lib64'
+
+        crash_count = 0
+        success_count = 0
+        error_count = 0
+
+        # Run for 30 seconds with very frequent restarts (every 2-3 seconds)
+        start_time = time.time()
+        iteration = 0
+
+        while (time.time() - start_time) < 30:
+            iteration += 1
+
+            with open(logfile, "a") as fd:
+                fd.write(f"\n--- Volume Info Iteration {iteration} ---\n")
+                fd.flush()
+
+            # Start smbls (calls OfcGetVolumeInformation)
+            command = f"smbls {TEST_SERVER_URL}/"
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env
+            )
+
+            # Wait a bit, then restart samba to try to catch the volume info call
+            time.sleep(1)
+
+            with open(logfile, "a") as fd:
+                fd.write(f"Restarting samba during volume info call (iteration {iteration})\n")
+                fd.flush()
+
+            restart_samba_service()
+
+            # Check result
+            try:
+                stdout, stderr = process.communicate(timeout=10)
+                returncode = process.returncode
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+                returncode = -1
+
+            with open(logfile, "a") as fd:
+                fd.write(f"smbls return code: {returncode}\n")
+                if returncode == -11:
+                    fd.write("CRASH: SIGSEGV detected!\n")
+                elif returncode == 0:
+                    fd.write("SUCCESS: Volume info completed\n")
+                else:
+                    fd.write(f"ERROR: Volume info failed with code {returncode}\n")
+
+            if returncode == -11:
+                crash_count += 1
+            elif returncode == 0:
+                success_count += 1
+            else:
+                error_count += 1
+
+            # Brief pause before next iteration
+            time.sleep(1)
+
+        with open(logfile, "a") as fd:
+            fd.write(f"\n=== Volume Info Rapid Disconnect Summary ===\n")
+            fd.write(f"Total iterations: {iteration}\n")
+            fd.write(f"Successes: {success_count}\n")
+            fd.write(f"Errors: {error_count}\n")
+            fd.write(f"Crashes: {crash_count}\n")
+
+        # Main assertion: no crashes
+        assert crash_count == 0, f"Volume info operations crashed {crash_count} times during rapid disconnects"
+
+        with open(logfile, "a") as fd:
+            fd.write("SUCCESS: Volume info rapid disconnect test completed\n")
+            fd.write("OfcGetVolumeInformation handled rapid disconnects without crashes\n")
+
+
 if __name__ == "__main__":
     # Can be run standalone for debugging
     print("Server Disconnect Tests")
