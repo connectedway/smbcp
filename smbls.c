@@ -11,10 +11,13 @@
 #include <ofc/config.h>
 #include <ofc/handle.h>
 #include <ofc/types.h>
+#include <ofc/path.h>
+#include <ofc/fstype.h>
 #include <ofc/file.h>
 #include <ofc/waitset.h>
 #include <ofc/queue.h>
 #include <ofc/time.h>
+#include <ofc/framework.h>
 #include <of_smb/framework.h>
 
 #include "smbinit.h"
@@ -22,20 +25,21 @@
 /**
  * \{
  */
-static wchar_t *MakeFilename(const wchar_t *dirname, const wchar_t *name)
+static wchar_t *MakeFilename(const wchar_t *device, const wchar_t *name)
 {
-  size_t dirlen;
   size_t namelen;
   wchar_t *filename;
-
-  dirlen = wcslen (dirname);
-  namelen = wcslen (name);
-  filename =
-    malloc((dirlen + namelen + 2) * sizeof(wchar_t));
-  wcscpy (filename, dirname);
-  filename[dirlen] = L'/';
-  wcscpy (&filename[dirlen+1], name);
-  filename[dirlen + 1 + namelen] = L'\0';
+  /*
+   * filename string length is going to be the length of the device
+   * plus a colon plus the name of the file plus nil.  
+   * This is number of wide characters.
+   */
+  namelen = (wcslen(device) + 1 + wcslen(name) + 1);
+  filename = malloc(namelen * sizeof(wchar_t));
+  /*
+   * Now build the filename
+   */
+  swprintf(filename, namelen, L"%ls:%ls", device, name);
   return (filename);
 }
 
@@ -132,60 +136,138 @@ static OFC_VOID OfcFSPrintFindData(OFC_WIN32_FIND_DATA *find_data)
   printf("\n");
 }
 
+wchar_t *CreateMap(const wchar_t *dirname)
+{
+  char *uuid;
+  OFC_PATH *path;
+  size_t len;
+  wchar_t *device;
+  /*
+   * Get our UUID and length
+   */
+  uuid = ofc_framework_get_uuid();
+  len = strlen(uuid) + 1;
+  /*
+   * Allocate a wide character version as our device
+   */
+  device = malloc(len * sizeof(wchar_t));
+  mbstowcs(device, uuid, len);
+  /*
+   * Free the uuid returned by the stack
+   */
+  ofc_framework_free_uuid(uuid);
+  /*
+   * Make a path out of the dirname passed in
+   */
+  path = ofc_path_create(dirname);
+  /*
+   * Add a map to the path from the wide character uuid
+   * NOTE: The path we just created will be released when we 
+   * delete the map
+   */
+  if (ofc_path_add_map(device, OFC_NULL, path, OFC_FST_SMB, OFC_FALSE) ==
+      OFC_FALSE)
+    {
+      /*
+       * Since we failed to add the map, free the device
+       */
+      free(device);
+      device = NULL;
+    }
+  return (device);
+}
+
+static void DeleteMap(wchar_t *device)
+{
+  ofc_path_delete_map(device);  
+  free(device);
+}
+
 static OFC_DWORD ls(OFC_CTCHAR *dirname)
 {
   OFC_HANDLE list_handle;
   OFC_WIN32_FIND_DATA find_data;
   OFC_BOOL more = OFC_FALSE;
   OFC_BOOL status;
-  OFC_TCHAR *filename;
   OFC_DWORD last_error;
   OFC_INT count;
+  wchar_t *device;
+  wchar_t *filename;
 
   list_handle = OFC_INVALID_HANDLE_VALUE;
   last_error = OFC_ERROR_SUCCESS;
 
-  count = 0;
-  filename = MakeFilename(dirname, TSTR("*"));
-
-  list_handle = OfcFindFirstFile(filename, &find_data, &more);
-
-  if (list_handle == OFC_INVALID_HANDLE_VALUE)
+  if (OfcGetVolumeInformation(dirname,
+                              OFC_NULL, 0,
+                              OFC_NULL,
+                              OFC_NULL,
+                              OFC_NULL,
+                              OFC_NULL, 0) == OFC_FALSE)
     {
       last_error = OfcGetLastError();
     }
-  free(filename);
-
-  if (list_handle != OFC_INVALID_HANDLE_VALUE)
+  else
     {
-      if (wcscmp(find_data.cFileName, L".") != 0 &&
-	  wcscmp(find_data.cFileName, L"..") != 0)
-	{
-	  count++;
-	  OfcFSPrintFindData(&find_data);
-	}
+      /* create a map */
+      device = CreateMap(dirname);
+      if (device == NULL)
+        {
+          last_error = OfcGetLastError();
+        }
+      else
+        {
+          count = 0;
+          /* 
+           * len is the number of wide characters in tuuid + 1
+           * we want to append :* to the tuuid to get a file path
+           */
+          filename = MakeFilename(device, L"*");
+          list_handle = OfcFindFirstFile(filename, &find_data, &more);
 
-      status = OFC_TRUE;
-      while (more && status == OFC_TRUE)
-	{
-	  status = OfcFindNextFile(list_handle,
-				   &find_data,
-				   &more);
-	  if (status == OFC_TRUE)
-	    {
-	      if (wcscmp(find_data.cFileName, L".") != 0 &&
-		  wcscmp(find_data.cFileName, L"..") != 0)
-		{
-		  count++;
-		  OfcFSPrintFindData(&find_data);
-		}
-            }
-          else
+          if (list_handle == OFC_INVALID_HANDLE_VALUE)
             {
               last_error = OfcGetLastError();
             }
+          /*
+           * Free the filename and the device.  We no longer need them.
+           * We have a handle instead.
+           */
+          free(filename);
+          DeleteMap(device);
         }
-      OfcFindClose(list_handle);
+
+      if (list_handle != OFC_INVALID_HANDLE_VALUE)
+        {
+          if (wcscmp(find_data.cFileName, L".") != 0 &&
+              wcscmp(find_data.cFileName, L"..") != 0)
+            {
+              count++;
+              OfcFSPrintFindData(&find_data);
+            }
+
+          status = OFC_TRUE;
+          while (more && status == OFC_TRUE)
+            {
+              status = OfcFindNextFile(list_handle,
+                                       &find_data,
+                                       &more);
+              if (status == OFC_TRUE)
+                {
+                  if (wcscmp(find_data.cFileName, L".") != 0 &&
+                      wcscmp(find_data.cFileName, L"..") != 0)
+                    {
+                      count++;
+                      OfcFSPrintFindData(&find_data);
+                    }
+                }
+              else
+                {
+                  last_error = OfcGetLastError();
+                }
+            }
+          OfcFindClose(list_handle);
+        }
+      OfcDismount(dirname);
     }
   printf("Total Number of Files in Directory %d\n", count);
   return (last_error);
@@ -204,8 +286,51 @@ int main (int argc, char **argp)
   if (argc < 2)
     {
       printf ("Usage: smbls <dir>\n");
+
+      OFC_SIZET len;
+      OFC_LPTSTR orig_filename;
+      OFC_LPTSTR filename;
+      OFC_SIZET rem;
+      OFC_LPCTSTR username;
+      OFC_LPCTSTR password;
+      OFC_LPCTSTR domain;
+      OFC_LPCTSTR uncInput;
+
+      username = TSTR("");
+      password = TSTR("");
+      domain = TSTR("FILE%3A/var/tmp/kerberos/ccache");
+      uncInput = TSTR("15.6.28.121/snf/folder");
+
+      filename = OFC_NULL;
+      rem = 0;
+      len = ofc_path_make_urlW(&filename,
+			       &rem,
+			       username,
+			       password,
+			       domain,
+			       OFC_NULL,
+			       OFC_NULL,
+			       OFC_NULL,
+			       uncInput);
+      rem = len + 1;
+      orig_filename = malloc(rem * sizeof(OFC_TCHAR));
+      filename = orig_filename;
+      len = ofc_path_make_urlW(&filename,
+			       &rem,
+			       username,
+			       password,
+			       domain,
+			       OFC_NULL,
+			       OFC_NULL,
+			       OFC_NULL,
+			       uncInput);
+      printf("File is %ls\n", orig_filename);
+      free(orig_filename);
+
       exit (1);
     }
+
+  OfcFileThreadInit();
 
   memset(&ps, 0, sizeof(ps));
   len = strlen(argp[1]) + 1;
@@ -233,6 +358,7 @@ int main (int argc, char **argp)
       status = 1;
     }
 
+  OfcFileThreadDeinit();
   /*
    * Deactivate the openfiles stack
    */
