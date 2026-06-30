@@ -7,6 +7,7 @@
 #include <string.h>
 #include <wchar.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <ofc/config.h>
 #include <ofc/framework.h>
@@ -16,6 +17,11 @@
 #include <ofc/waitset.h>
 #include <ofc/queue.h>
 #include <of_smb/framework.h>
+
+/*
+ * Set this if you wish to exercise the ofc_framework_set_log_file  API
+ */
+#define SET_LOG_FILE
 
 #if !defined(INIT_ON_LOAD)
 /*
@@ -103,6 +109,45 @@ void smbcp_init(void)
 }
 
 #if !defined(INIT_ON_LOAD)
+void disable_smb_dialects(void)
+{
+  of_smb_disable_dialect(0x0202);
+  of_smb_disable_dialect(0x0210);
+  of_smb_disable_dialect(0x0300);
+  of_smb_disable_dialect(0x0302);
+  of_smb_disable_dialect(0x0311);
+}  
+
+void generate_uuid(char *uuid)
+{
+  const char *chars = "0123456789abcdef";
+
+  int i;
+
+  srand((unsigned int)time(NULL));
+
+  for (i = 0; i < 36; i++)
+    {
+      if (i == 8 || i == 13 || i == 18 || i == 23)
+        {
+          uuid[i] = '-';
+        }
+      else if (i == 14)
+        {
+          uuid[i] = '4';
+        }
+      else if (i == 19)
+        {
+          uuid[i] = chars[(rand() % 4) + 8];
+        }
+      else
+        {
+          uuid[i] = chars[rand() % 16];
+        }
+    }
+  uuid[36] = '\0';
+}
+
 void smbcp_configure(void)
 {
 #if defined(OFC_PERSIST)
@@ -116,6 +161,12 @@ void smbcp_configure(void)
    */
   ofc_framework_load(OFC_NULL);
 #else
+#if defined(SET_LOG_FILE)
+  /*
+   * Set the log file if you don't want to use syslog
+   */
+  ofc_framework_set_log_file("/tmp/openfiles.%d.log", 100000, 3);
+#endif
   /*
    * We will explicity configure the stack.
    *
@@ -148,16 +199,16 @@ void smbcp_configure(void)
    * Hybrid (HMODE).  Mixed is broadcast first, if that
    * fails, then WINS.  Hybrid is WINS first, then broadcast.
    */
-  iface.netBiosMode = OFC_CONFIG_PMODE;
+  iface.netBiosMode = OFC_CONFIG_HMODE;
   /*
    * Configure the IP address.  The IP address is an
    * OFC_IPADDR which can initialized by a call to
    * ofc_pton.  NOTE: Be sure to retrieve and specify
    * the actual IP you wish to use.
    */
-  ofc_pton("192.168.1.60", &iface.ip);
-  ofc_pton("192.168.1.255", &iface.bcast);
-  ofc_pton("255.255.255.0", &iface.mask);
+  ofc_pton("0.0.0.0", &iface.ip);
+  ofc_pton("255.255.255.255", &iface.bcast);
+  ofc_pton("0.0.0.0", &iface.mask);
   /*
    * Local Master Browser is not supported in SMBv2.  Deprecated
    * but specify as NULL.
@@ -172,6 +223,7 @@ void smbcp_configure(void)
    * free it after the ofc_framework_add_interface call.
    */
   OFC_IPADDR winsaddr[2];
+  /* Change these to appropriate values for your configuration */
   ofc_pton("192.168.1.61", &winsaddr[0]);
   ofc_pton("192.168.1.62", &winsaddr[1]);
   iface.wins.num_wins = 2;
@@ -182,11 +234,11 @@ void smbcp_configure(void)
   ofc_framework_add_interface(&iface) ;
 #endif
   /*
-   * Set up logging.  We want to log INFO messages and
+   * Set up logging.  We want to log DEBUG messages and
    * higher. Don't log to the console.  On Linux,
    * This will log to syslog
    */
-  ofc_framework_set_logging(OFC_LOG_INFO, OFC_FALSE);
+  ofc_framework_set_logging(OFC_LOG_DEBUG, OFC_FALSE);
   /*
    * Set the host name
    * This is not required for a client.  It is never used.
@@ -207,20 +259,35 @@ void smbcp_configure(void)
    * Enable Netbios
    */
   ofc_framework_set_netbios(OFC_TRUE);
+#if 0
   /*
-   * Set the UUID.  This is required in an SMB negotiate request
-   * but it doesn't appear to be checked by servers.  Ideally
-   * though this should be a unique number.  We are passing in a 
-   * string.  Make sure it is null terminated.
+   * Before calling this routine, we had made a call to of_smb_init.
+   * That will have enabled all smb dialects.  If you wish to enable
+   * a single smb dialect, we can disable all, then enable just
+   * the one we wish.
    */
-  static const OFC_CHAR uuid[] = 
-  {
-    0x04, 0x5d, 0x88, 0x8a, 0xeb, 0x1c, 0xc9, 0x11,
-    0x9f, 0xe8, 0x08, 0x00, 0x2b, 0x10, 0x48, 0x60,
-    0x00
-  };
+  disable_smb_dialects();
+  /* 
+   * Now enable just 3.1.1.
+   */
+  of_smb_enable_dialect(0x0311);
+#endif
+  /*
+   * Set the UUID.  This needs to be unique per client.
+   */
+  static OFC_CHAR uuid[37];
+  generate_uuid(uuid);
+
   ofc_framework_set_uuid(uuid);
  /*
+   * Set the default realm
+   * You will want to adjust this for your config.  You can skip this step
+   * if you are setting the default realm in krb5.conf or you are not
+   * using Kerberos authentication
+   */
+  ofc_framework_set_realm("DOUBLEDOUBLEU.COM");
+
+  /*
    * Set the default realm
    * You will want to adjust this for your config.  You can skip this step
    * if you are setting the default realm in krb5.conf or you are not
@@ -244,6 +311,13 @@ void smbcp_configure(void)
    * by default we specify SMB 3.11.  There should never be
    * a reason to change this.
    */
+
+#if defined(OFC_KERBEROS) && defined(__linux__)
+  /*
+   * Enable Reverse DNS
+   */
+  ofc_framework_set_reverse_dns(OFC_TRUE);
+#endif
 #endif
 }
 

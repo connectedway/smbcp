@@ -1,0 +1,3 @@
+# Python dependencies for server disconnect race condition tests
+pytest>=6.0.0
+psutil>=5.0.0
